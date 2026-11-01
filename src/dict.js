@@ -1,60 +1,39 @@
-// 词典聚合：dictionaryapi.dev（英英/音标/发音）+ 腾讯云 TMT 或 MyMemory（中译）+ D1 缓存
+// 词典聚合：dictionaryapi.dev（英英/音标/发音）+ 翻译链 Azure → 百度 → MyMemory + D1 缓存
+
+import md5 from 'js-md5';
 
 const CACHE_TTL_MS = 7 * 24 * 3600 * 1000;
 
-const enc = new TextEncoder();
-const hex = (buf) => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-
-async function sha256Hex(str) {
-  return hex(await crypto.subtle.digest('SHA-256', enc.encode(str)));
-}
-async function hmacBin(keyStr, msg) {
-  const key = await crypto.subtle.importKey('raw', enc.encode(keyStr), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return crypto.subtle.sign('HMAC', key, enc.encode(msg));
-}
-const hmacHex = async (keyStr, msg) => hex(await hmacBin(keyStr, msg));
-
-// 腾讯云 TMT（TC3-HMAC-SHA256 签名，Web Crypto 原生支持）
-async function tmtTranslate(secretId, secretKey, text) {
-  const service = 'tmt', host = 'tmt.tencentcloudapi.com';
-  const ts = Math.floor(Date.now() / 1000);
-  const date = new Date(ts * 1000).toISOString().slice(0, 10);
-  const payload = JSON.stringify({ SourceText: text, Source: 'en', Target: 'zh', ProjectId: 0 });
-
-  const canonicalReq = [
-    'POST', '/', '',
-    `content-type:application/json; charset=utf-8\nhost:${host}\n`,
-    'content-type;host',
-    await sha256Hex(payload),
-  ].join('\n');
-
-  const stringToSign = [
-    'TC3-HMAC-SHA256', String(ts),
-    `${date}/${service}/tc3_request`,
-    await sha256Hex(canonicalReq),
-  ].join('\n');
-
-  const signature = await hmacHex(
-    await hmacBin(await hmacBin(await hmacBin('TC3' + secretKey, date), service), 'tc3_request'),
-    stringToSign
-  );
-
-  const res = await fetch(`https://${host}/`, {
+// Azure AI Translator F0：200 万字符/月永久免费，超额拒绝请求不产生费用
+// 全局端点 + Ocp-Apim-Subscription-Region 头；简体中文为 zh-Hans
+async function azureTranslate(env, q) {
+  const res = await fetch('https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from=en&to=zh-Hans', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      Host: host,
-      'X-TC-Action': 'TranslateText',
-      'X-TC-Version': '2018-03-21',
-      'X-Timestamp': String(ts),
-      Authorization: `TC3-HMAC-SHA256 Credential=${secretId}/${date}/${service}/tc3_request, SignedHeaders=content-type;host, Signature=${signature}`,
+      'Ocp-Apim-Subscription-Key': env.AZURE_TRANSLATOR_KEY,
+      'Ocp-Apim-Subscription-Region': env.AZURE_TRANSLATOR_REGION,
+      'Content-Type': 'application/json; charset=UTF-8',
     },
-    body: payload,
+    body: JSON.stringify([{ Text: q }]),
+  });
+  if (!res.ok) throw new Error(`azure ${res.status}`);
+  const data = await res.json();
+  return data?.[0]?.translations?.[0]?.text || '';
+}
+
+// 百度翻译开放平台：标准版免费 5 万字符/月，个人认证后 100 万字符/月
+// 签名 = md5(appid + q + salt + secret)，MD5 由 js-md5 提供（Web Crypto 不支持 MD5）
+async function baiduTranslate(env, q) {
+  const salt = String(Date.now());
+  const sign = md5(`${env.BAIDU_APPID}${q}${salt}${env.BAIDU_SECRET}`);
+  const res = await fetch('https://fanyi-api.baidu.com/api/trans/vip/translate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ q, from: 'en', to: 'zh', appid: env.BAIDU_APPID, salt, sign }),
   });
   const data = await res.json();
-  const target = data?.Response?.Target;
-  if (!target) throw new Error(data?.Response?.Error?.Message || 'TMT no target');
-  return target;
+  if (data.error_code) throw new Error(`baidu ${data.error_code}: ${data.error_msg}`);
+  return (data.trans_result || []).map(r => r.dst).join('\n');
 }
 
 // MyMemory 兜底（无 key）
@@ -66,10 +45,14 @@ async function myMemoryTranslate(word) {
   return data?.responseData?.translatedText || '';
 }
 
+// 翻译引擎链：按已配置的 key 自动选择，全部失败用 MyMemory
 async function translate(env, word) {
-  if (env.TMT_SECRET_ID && env.TMT_SECRET_KEY) {
+  if (env.AZURE_TRANSLATOR_KEY) {
+    try { return { translation: await azureTranslate(env, word), engine: 'azure' }; } catch { /* 下一级 */ }
+  }
+  if (env.BAIDU_APPID && env.BAIDU_SECRET) {
     try {
-      return { translation: await tmtTranslate(env.TMT_SECRET_ID, env.TMT_SECRET_KEY, word), engine: 'tmt' };
+      return { translation: await baiduTranslate(env, word), engine: 'baidu' };
     } catch { /* 落到 MyMemory */ }
   }
   return { translation: await myMemoryTranslate(word), engine: 'mymemory' };

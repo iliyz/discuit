@@ -15,8 +15,11 @@ database_name = "biscuit-db"
 database_id = "TO_BE_FILLED_AFTER_CREATE"
 
 # 环境变量说明：
-# APP_TOKEN      — 访问口令（wrangler secret put APP_TOKEN）
-# TMT_SECRET_ID  — 腾讯云密钥 ID（可选，留空则用 MyMemory 兜底）
-# TMT_SECRET_KEY — 腾讯云密钥 Key（可选）
+# APP_TOKEN               — 访问口令（wrangler secret put APP_TOKEN）
+# AZURE_TRANSLATOR_KEY    — Azure AI Translator F0 密钥（wrangler secret put）
+# AZURE_TRANSLATOR_REGION — Azure 资源区域，如 eastasia（非机密，放 vars）
+# BAIDU_APPID             — 百度翻译 APPID（可选备胎，留空跳过）
+# BAIDU_SECRET            — 百度翻译密钥（wrangler secret put）
 [vars]
-TMT_SECRET_ID = ""
+AZURE_TRANSLATOR_REGION = "eastasia"
+BAIDU_APPID = ""
