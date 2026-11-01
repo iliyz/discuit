@@ -22,6 +22,15 @@
     <ul id="list"></ul>
     <div id="empty" class="empty hidden">饼干盒是空的<br>从上面输入第一个单词吧</div>
   </main>
+  <dialog id="token-dialog">
+    <form>
+      <h2>🍪 访问口令</h2>
+      <p>输入服务器访问口令（APP_TOKEN）<br><small>不是上面的搜索单词输入框</small></p>
+      <input id="token-input" type="password" autocomplete="off" placeholder="访问口令">
+      <p id="token-error" class="token-error hidden">口令不对，再试一次</p>
+      <button type="submit">进入</button>
+    </form>
+  </dialog>
   <script src="/app.js"></script>
 </body>
 </html>

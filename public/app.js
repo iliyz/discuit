@@ -10,21 +10,39 @@ let dragMoved = false; // 本次 pointer 序列是否构成拖动（抑制 click
 /* ---------- API ---------- */
 function getToken() { return localStorage.getItem('biscuit_token') || ''; }
 
-async function askToken() {
-  const t = prompt('请输入访问口令（APP_TOKEN）');
-  if (t) { localStorage.setItem('biscuit_token', t.trim()); }
-  return getToken();
+// 口令对话框（<dialog>）：Promise 在提交时 resolve 输入值
+function askToken() {
+  return new Promise((resolve) => {
+    const dlg = $('#token-dialog');
+    const inp = $('#token-input');
+    const err = $('#token-error');
+    inp.value = '';
+    err.classList.add('hidden');
+    if (!dlg.open) dlg.showModal();
+    inp.focus();
+    const onSubmit = (e) => {
+      e.preventDefault();
+      const t = inp.value.trim();
+      if (!t) { err.textContent = '口令不能为空'; err.classList.remove('hidden'); return; }
+      localStorage.setItem('biscuit_token', t);
+      dlg.removeEventListener('submit', onSubmit);
+      dlg.close();
+      resolve(t);
+    };
+    dlg.addEventListener('submit', onSubmit);
+  });
 }
 
-async function api(path, opts = {}) {
+async function api(path, opts = {}, _retried = false) {
   if (!getToken()) await askToken();
   opts.headers = { Authorization: `Bearer ${getToken()}`, ...(opts.headers || {}) };
   if (opts.body) opts.headers['Content-Type'] = 'application/json';
   const res = await fetch(path, opts);
   if (res.status === 401) {
     localStorage.removeItem('biscuit_token');
+    if (_retried) throw new Error('unauthorized');
     await askToken();
-    return api(path, opts); // 重试一次
+    return api(path, opts, true); // 最多重试一次
   }
   return res;
 }
@@ -297,7 +315,8 @@ async function boot() {
     render();
     localStorage.setItem('biscuit_words', JSON.stringify(words));
   } catch (e) {
-    if (words.length) toast('离线中，显示缓存数据');
+    if (e.message === 'unauthorized') emptyEl.textContent = '口令不正确，刷新页面重试';
+    else if (words.length) toast('离线中，显示缓存数据');
     else emptyEl.textContent = '加载失败，检查网络后重试';
   }
 }
