@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#f7b731">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <title>biscuit · 背单词</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <input id="search" type="search" autocomplete="off" spellcheck="false"
+           placeholder="输入单词，回车添加" aria-label="搜索单词">
+    <div id="lookup" class="lookup hidden" role="listbox"></div>
+  </header>
+  <main>
+    <ul id="list"></ul>
+    <div id="empty" class="empty hidden">饼干盒是空的<br>从上面输入第一个单词吧</div>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

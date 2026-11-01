@@ -1,0 +1,17 @@
+{
+  "name": "biscuit",
+  "version": "1.0.0",
+  "description": "PWA 背单词 - Cloudflare Workers + D1",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create biscuit-db",
+    "db:migrate:local": "wrangler d1 execute biscuit-db --local --file=./migrations/0001_init.sql",
+    "db:migrate:remote": "wrangler d1 execute biscuit-db --remote --file=./migrations/0001_init.sql"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.5",
+    "wrangler": "^4.156.0"
+  }
+}

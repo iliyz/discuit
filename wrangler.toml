@@ -1,0 +1,22 @@
+name = "biscuit"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+
+# 静态资源 + 同一 Worker 提供 API
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "biscuit-db"
+database_id = "TO_BE_FILLED_AFTER_CREATE"
+
+# 环境变量说明：
+# APP_TOKEN      — 访问口令（wrangler secret put APP_TOKEN）
+# TMT_SECRET_ID  — 腾讯云密钥 ID（可选，留空则用 MyMemory 兜底）
+# TMT_SECRET_KEY — 腾讯云密钥 Key（可选）
+[vars]
+TMT_SECRET_ID = ""
