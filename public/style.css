@@ -14,15 +14,25 @@ body {
   overflow: hidden;
 }
 
-/* ---------- 第一行：输入与搜索 ---------- */
+/* ---------- 第一行：入口按钮 + 输入与搜索 ---------- */
 header {
   position: fixed; top: 0; left: 0; right: 0; z-index: 50;
   padding-top: env(safe-area-inset-top, 0px);
   background: #fff;
   border-bottom: 1px solid var(--line);
 }
+.head-row { display: flex; align-items: stretch; }
+.glyph-btn {
+  width: 52px; height: 52px; flex-shrink: 0;
+  border: none; border-radius: 0;
+  background: #fff;
+  font-size: 34px; line-height: 1;
+  color: var(--glyph, #36ab60);
+  cursor: pointer;
+  padding: 0;
+}
 #search {
-  display: block; width: 100%;
+  display: block; flex: 1; width: 100%; min-width: 0;
   padding: 15px 16px;
   border: none; border-radius: 0;
   font-size: 17px;
@@ -72,8 +82,17 @@ main { height: 100%; overflow-y: auto; padding-top: calc(env(safe-area-inset-top
 }
 .card.known .row { opacity: .35; }
 .w { font-size: 17px; }
-.p { font-size: 13px; color: var(--muted); margin-left: 8px; }
+.p { font-size: 13px; color: inherit; opacity: .65; margin-left: 8px; }
 .badge { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+
+/* 红标记色块：右缘竖条，宽 = 行高/4，显示标记次数 */
+.redblock {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 13px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 10px; font-weight: 600;
+  pointer-events: none;
+}
 
 /* 滑动提示 */
 .hint {
@@ -94,7 +113,7 @@ main { height: 100%; overflow-y: auto; padding-top: calc(env(safe-area-inset-top
 .flip-panel {
   position: absolute; top: 0; left: 0; right: 0;
   z-index: 45;
-  background: #fff;
+  background: var(--panel-bg, #fff);
   border: 1px solid var(--line);
   border-top: none;
 }
@@ -160,3 +179,46 @@ main { height: 100%; overflow-y: auto; padding-top: calc(env(safe-area-inset-top
 #token-dialog button:active { background: #f2f2f2; }
 .token-error { color: #d64541 !important; }
 .token-error.hidden { display: none; }
+
+/* ---------- 设置界面 ---------- */
+#settings {
+  position: fixed; inset: 0; z-index: 60;
+  background: #fff;
+  overflow-y: auto;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+#settings.hidden { display: none; }
+.set-head {
+  display: flex; align-items: center;
+  border-bottom: 1px solid var(--line);
+}
+.set-title { font-size: 17px; margin-left: 12px; }
+.set-body { padding-bottom: 40px; }
+.set-group { padding: 18px 16px 6px; border-bottom: 1px solid var(--line); }
+.set-group:last-child { border-bottom: none; }
+.set-group h3 { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
+.set-line {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 40px; font-size: 15px;
+}
+.set-line select, .set-line input[type="text"], .set-line input[type="number"] {
+  font-size: 15px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 0;
+  background: #fff; color: var(--text);
+  max-width: 60%;
+}
+.set-line input[type="range"] { flex: 1; }
+.zone-val { font-size: 13px; color: var(--muted); min-width: 70px; text-align: right; }
+.set-line input[type="color"] {
+  width: 44px; height: 30px; padding: 0; border: 1px solid var(--line);
+  background: #fff; border-radius: 0;
+}
+.set-note { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+.swatches { display: flex; gap: 10px; padding-bottom: 12px; }
+.swatch {
+  width: 36px; height: 36px;
+  border: 1px solid var(--line); border-radius: 0;
+  cursor: pointer; padding: 0;
+}
+.swatch.transparent { background: #fff; background-image: linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%), linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%); background-size: 10px 10px; background-position: 0 0, 5px 5px; }
+.swatch.active { outline: 2px solid var(--text); outline-offset: 2px; }

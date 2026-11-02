@@ -36,7 +36,10 @@ export default {
       if (url.pathname === '/api/lookup' && req.method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();
         if (!q || q.length > 64) return json({ error: 'invalid q' }, 400);
-        return json(await lookupWord(env, q));
+        // 设置页填的 Azure key 优先（经 X-Translator-Key 头传入，仅存在内存中转发）
+        const key = req.headers.get('X-Translator-Key');
+        const env2 = key ? { ...env, AZURE_TRANSLATOR_KEY: key } : env;
+        return json(await lookupWord(env2, q));
       }
       return json({ error: 'not found' }, 404);
     } catch (e) {
@@ -46,7 +49,14 @@ export default {
 };
 
 // ---- handlers ----
-const ORDER_BY = `ORDER BY CASE status WHEN 'star' THEN 0 WHEN 'new' THEN 1 ELSE 2 END, updated_at DESC`;
+const clampInt = (v, lo, hi) => {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return null;
+  return Math.min(hi, Math.max(lo, n));
+};
+
+// 记忆模型排序：红标记浮顶 → 未移尾在前 → 记忆层级浅在前 → 最近更新在前
+const ORDER_BY = 'ORDER BY (red > 0) ASC, tail ASC, mem ASC, updated_at DESC';
 
 async function listWords(env) {
   const { results } = await env.DB.prepare(`SELECT * FROM words ${ORDER_BY}`).all();
@@ -64,8 +74,10 @@ async function addWord(env, req) {
 
   if (info.meta.changes === 0) return json({ error: 'exists' }, 409);
 
-  // 自动补全翻译/音标/发音，再写回
-  const lk = await lookupWord(env, word);
+  // 自动补全翻译/音标/发音，再写回（同样支持 X-Translator-Key 覆盖）
+  const key = req.headers.get('X-Translator-Key');
+  const env2 = key ? { ...env, AZURE_TRANSLATOR_KEY: key } : env;
+  const lk = await lookupWord(env2, word);
   await env.DB.prepare(
     `UPDATE words SET translation = ?1, phonetic = ?2, audio = ?3, definition = ?4, updated_at = ?5 WHERE word = ?6`
   ).bind(lk.translation, lk.phonetic, lk.audio, lk.definition, Date.now(), word).run();
@@ -85,6 +97,21 @@ async function patchWord(env, id, req) {
   }
   if (body.note !== undefined)     { sets.push('note = ?' + (vals.length + 1));        vals.push(String(body.note).slice(0, 2000)); }
   if (body.translation !== undefined) { sets.push('translation = ?' + (vals.length + 1)); vals.push(String(body.translation).slice(0, 2000)); }
+  if (body.mem !== undefined) {
+    const v = clampInt(body.mem, 0, 99);
+    if (v === null) return json({ error: 'invalid mem' }, 400);
+    sets.push('mem = ?' + (vals.length + 1)); vals.push(v);
+  }
+  if (body.red !== undefined) {
+    const v = clampInt(body.red, 0, 99);
+    if (v === null) return json({ error: 'invalid red' }, 400);
+    sets.push('red = ?' + (vals.length + 1)); vals.push(v);
+  }
+  if (body.tail !== undefined) {
+    const v = clampInt(body.tail, 0, 1);
+    if (v === null) return json({ error: 'invalid tail' }, 400);
+    sets.push('tail = ?' + (vals.length + 1)); vals.push(v);
+  }
   if (!sets.length) return json({ error: 'nothing to update' }, 400);
 
   sets.push('updated_at = ?' + (vals.length + 1)); vals.push(Date.now());

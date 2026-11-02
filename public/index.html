@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="icon" type="image/svg+xml" href="/biscuit.svg">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/icon-192.png">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
@@ -14,14 +15,73 @@
 </head>
 <body>
   <header>
-    <input id="search" type="search" autocomplete="off" spellcheck="false"
-           placeholder="输入单词，回车添加" aria-label="搜索单词">
+    <div class="head-row">
+      <button id="menu-btn" class="glyph-btn" aria-label="设置">▛</button>
+      <input id="search" type="search" autocomplete="off" spellcheck="false"
+             placeholder="输入单词，回车添加" aria-label="搜索单词">
+    </div>
     <div id="lookup" class="lookup hidden" role="listbox"></div>
   </header>
   <main>
     <ul id="list"></ul>
     <div id="empty" class="empty hidden">饼干盒是空的<br>从上面输入第一个单词吧</div>
   </main>
+  <section id="settings" class="hidden">
+    <div class="set-head">
+      <button id="back-btn" class="glyph-btn" aria-label="返回单词列表">▟</button>
+      <span class="set-title">设置</span>
+    </div>
+    <div class="set-body">
+      <div class="set-group">
+        <h3>角标颜色（▛ / ▟）</h3>
+        <div class="swatches" id="glyph-swatches">
+          <button class="swatch" data-v="#36ab60" style="background:#36ab60"></button>
+          <button class="swatch" data-v="#000000" style="background:#000"></button>
+          <button class="swatch transparent" data-v="transparent"></button>
+        </div>
+      </div>
+      <div class="set-group">
+        <h3>点击区域功能</h3>
+        <label class="set-line">左侧<select id="fn-left">
+          <option value="speak">发音</option><option value="flip">翻转</option><option value="edit">编辑</option>
+        </select></label>
+        <label class="set-line">中间<select id="fn-mid">
+          <option value="speak">发音</option><option value="flip">翻转</option><option value="edit">编辑</option>
+        </select></label>
+        <label class="set-line">右侧<select id="fn-right">
+          <option value="speak">发音</option><option value="flip">翻转</option><option value="edit">编辑</option>
+        </select></label>
+      </div>
+      <div class="set-group">
+        <h3>点击区域比例</h3>
+        <label class="set-line">左｜中<input type="range" id="zone1" min="10" max="80" step="1"><span class="zone-val" id="zone1v"></span></label>
+        <label class="set-line">中｜右<input type="range" id="zone2" min="20" max="90" step="1"><span class="zone-val" id="zone2v"></span></label>
+      </div>
+      <div class="set-group">
+        <h3>颜色</h3>
+        <label class="set-line">词条背景<input type="color" id="c-rowbg"></label>
+        <label class="set-line">文字颜色<input type="color" id="c-rowtext"></label>
+        <label class="set-line">释义窗口<input type="color" id="c-panel"></label>
+        <label class="set-line">标记色块<input type="color" id="c-red"></label>
+      </div>
+      <div class="set-group">
+        <h3>记忆</h3>
+        <label class="set-line">最大记忆次数 a<input type="number" id="maxmem" min="1" max="10" step="1"></label>
+        <p class="set-note">左轻滑 +1 层（变浅），右轻滑 -1 层（变深），最深到 3a；红标记需 3 次左轻滑抵消 1 次。</p>
+      </div>
+      <div class="set-group">
+        <h3>翻译 API</h3>
+        <label class="set-line">服务商<select id="api-provider">
+          <option value="azure">Azure Translator</option>
+          <option value="baidu">百度翻译（未接入）</option>
+          <option value="tencent">腾讯云翻译（未接入）</option>
+          <option value="deepl">DeepL（未接入）</option>
+        </select></label>
+        <label class="set-line">API Key<input type="text" id="api-key" placeholder="粘贴 Azure Key" autocomplete="off"></label>
+        <p class="set-note">Key 只存在本设备 localStorage，查询时经 Worker 转发。目前仅 Azure 生效，其余选项为占位。</p>
+      </div>
+    </div>
+  </section>
   <dialog id="token-dialog">
     <form>
       <h2>🍪 访问口令</h2>

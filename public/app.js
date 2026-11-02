@@ -7,6 +7,57 @@ const listEl = $('#list'), searchEl = $('#search'), lookupEl = $('#lookup'), emp
 let words = [];
 let dragMoved = false; // 本次 pointer 序列是否构成拖动（抑制 click）
 
+/* ---------- 设置（存本机 localStorage） ---------- */
+const BISCUIT_GREEN = '#36ab60';
+const SETTINGS_KEY = 'biscuit_settings';
+const DEFAULT_SETTINGS = {
+  glyph: BISCUIT_GREEN,          // ▛/▟ 颜色
+  zone1: 33,                     // 左|中 分界 %
+  zone2: 67,                     // 中|右 分界 %
+  fns: ['speak', 'flip', 'edit'],// 左/中/右 功能
+  rowBg: BISCUIT_GREEN,          // 词条默认背景（biscuit 绿）
+  rowText: '#ffffff',            // 词条默认文字
+  panelBg: '#ffffff',            // 释义窗口背景
+  redColor: '#e0524d',           // 红标记色块
+  maxMem: 1,                     // a：最大记忆次数单位，最深 3a 层
+  apiProvider: 'azure',
+  apiKey: '',
+};
+let S = loadSettings();
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    return { ...DEFAULT_SETTINGS, ...saved, fns: [...(saved.fns || DEFAULT_SETTINGS.fns)] };
+  } catch { return { ...DEFAULT_SETTINGS }; }
+}
+function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(S)); applySettings(); }
+
+// 颜色混合 a→b，t∈[0,1]
+function mixHex(a, b, t) {
+  const p = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const [r1, g1, b1] = p(a), [r2, g2, b2] = p(b);
+  const q = (x, y) => Math.round(x + (y - x) * Math.max(0, Math.min(1, t))).toString(16).padStart(2, '0');
+  return `#${q(r1, r2)}${q(g1, g2)}${q(b1, b2)}`;
+}
+
+// 记忆层级 → 颜色：0=biscuit 绿底，2a 起白底；文字 浅灰→灰→黑
+function memColors(mem) {
+  const a = Math.max(1, S.maxMem);
+  const m = Math.min(mem || 0, 3 * a);
+  const bg = mixHex(S.rowBg, '#ffffff', m / (2 * a));
+  let text;
+  if (m <= a)          text = mixHex(S.rowText, '#bdbdbd', m / a);
+  else if (m <= 2 * a) text = mixHex('#bdbdbd', '#8f8f8f', (m - a) / a);
+  else                 text = mixHex('#8f8f8f', '#111111', (m - 2 * a) / a);
+  return { bg, text };
+}
+
+function applySettings() {
+  document.documentElement.style.setProperty('--glyph', S.glyph);
+  document.documentElement.style.setProperty('--panel-bg', S.panelBg);
+}
+
 /* ---------- API ---------- */
 function getToken() { return localStorage.getItem('biscuit_token') || ''; }
 
@@ -37,6 +88,7 @@ async function api(path, opts = {}, _retried = false) {
   if (!getToken()) await askToken();
   opts.headers = { Authorization: `Bearer ${getToken()}`, ...(opts.headers || {}) };
   if (opts.body) opts.headers['Content-Type'] = 'application/json';
+  if (S.apiProvider === 'azure' && S.apiKey) opts.headers['X-Translator-Key'] = S.apiKey;
   const res = await fetch(path, opts);
   if (res.status === 401) {
     localStorage.removeItem('biscuit_token');
@@ -72,9 +124,15 @@ function speak(word, audioUrl) {
 }
 
 /* ---------- 渲染 ---------- */
-const ORDER = { star: 0, new: 1, known: 2 };
+// 与服务端 ORDER BY 一致：红标记浮顶 → 未移尾在前 → 记忆浅在前 → 最近更新在前
 function sortWords() {
-  words.sort((a, b) => (ORDER[a.status] - ORDER[b.status]) || (b.updated_at - a.updated_at));
+  words.sort((a, b) => {
+    const ra = (a.red > 0 ? 0 : 1) - (b.red > 0 ? 0 : 1);
+    if (ra) return ra;
+    if ((a.tail || 0) !== (b.tail || 0)) return (a.tail || 0) - (b.tail || 0);
+    if ((a.mem || 0) !== (b.mem || 0)) return (a.mem || 0) - (b.mem || 0);
+    return b.updated_at - a.updated_at;
+  });
 }
 
 function el(tag, cls, text) {
@@ -104,16 +162,25 @@ function render() {
   emptyEl.classList.toggle('hidden', words.length > 0);
 
   for (const w of words) {
-    const card = el('li', `card ${w.status}`);
+    const card = el('li', 'card');
     card.dataset.id = w.id;
 
-    // 行：word + 音标 + 状态徽标
+    // 行：word + 音标 + 红标块；背景/文字颜色由记忆层级决定
     const row = el('div', 'row');
+    const c = memColors(w.mem);
+    row.style.background = c.bg;
+    row.style.color = c.text;
     const left = el('div');
     left.appendChild(el('span', 'w', w.word));
     if (w.phonetic) left.appendChild(el('span', 'p', w.phonetic));
     row.appendChild(left);
-    row.appendChild(el('span', 'badge', w.status === 'star' ? '⭐' : w.status === 'known' ? '✓' : ''));
+    if (w.red > 0) {
+      const rb = el('div', 'redblock', String(Math.ceil(w.red / 3)));
+      rb.style.background = S.redColor;
+      rb.style.opacity = String(Math.min(1, w.red / 3));
+      row.appendChild(rb);
+      row.style.paddingRight = '26px';
+    }
 
     const hintL = el('div', 'hint left');
     const hintR = el('div', 'hint right');
@@ -156,9 +223,9 @@ function render() {
 }
 
 /* ---------- 手势 + 点击（Pointer Events 统一触摸/鼠标） ---------- */
-const DRAG_MIN = 10;        // 触发拖动阈值
-const MARK = 44;            // 标记阈值
-const DELETE_AT = 130;      // 左滑删除阈值
+const DRAG_MIN = 10;   // 触发拖动阈值
+const LIGHT = 44;      // 轻滑阈值
+const BIG = 130;       // 大距离阈值
 
 function bindCard(card, w) {
   const row = card.querySelector('.row');
@@ -182,11 +249,10 @@ function bindCard(card, w) {
     }
     if (!dragMoved) return;
     row.style.transform = `translateX(${dx}px)`;
-    const del = dx < -DELETE_AT;
-    hintL.textContent = del ? '🗑 删除' : '✓ 认识';
-    hintL.classList.toggle('show', dx < -MARK);
-    hintR.textContent = '⭐ 重点';
-    hintR.classList.toggle('show', dx > MARK);
+    hintL.textContent = dx < -BIG ? '⤓ 底部' : '＋1 记住';
+    hintL.classList.toggle('show', dx < -LIGHT);
+    hintR.textContent = dx > BIG ? '⚑ 标记' : '－1';
+    hintR.classList.toggle('show', dx > LIGHT);
   });
 
   const finish = async () => {
@@ -197,18 +263,19 @@ function bindCard(card, w) {
     hintL.classList.remove('show'); hintR.classList.remove('show');
     row.style.transform = '';
 
-    if (dx < -DELETE_AT) {
-      card.classList.add('removing');
-      const res = await api(`/api/words/${w.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        words = words.filter(x => x.id !== w.id);
-        toast(`已删除 ${w.word} 🍪`);
-        setTimeout(render, 250);
-      } else { card.classList.remove('removing'); toast('删除失败'); }
-    } else if (dx < -MARK) {
-      setStatus(w, w.status === 'known' ? 'new' : 'known');
-    } else if (dx > MARK) {
-      setStatus(w, w.status === 'star' ? 'new' : 'star');
+    if (dx <= -BIG) {
+      // 左滑大距离：移到列表尾部
+      patchWord(w, { tail: 1 }).then(() => toast(`${w.word} 已移到底部`));
+    } else if (dx <= -LIGHT) {
+      // 左滑轻：先抵消红标记（3 次轻滑抵 1 次），否则记忆 +1（颜色变浅）
+      if (w.red > 0) patchWord(w, { red: Math.max(0, w.red - 1) });
+      else patchWord(w, { mem: Math.min(3 * S.maxMem, (w.mem || 0) + 1) });
+    } else if (dx >= BIG) {
+      // 右滑大距离：红标记 +1（服务端以 1/3 为单位存储）
+      patchWord(w, { red: Math.min(99, (w.red || 0) + 3) });
+    } else if (dx >= LIGHT) {
+      // 右滑轻：记忆 -1（颜色变深回绿）
+      patchWord(w, { mem: Math.max(0, (w.mem || 0) - 1) });
     }
   };
 
@@ -219,32 +286,30 @@ function bindCard(card, w) {
     row.style.transform = '';
   });
 
-  // 点击：浮层内不处理；行内左 1/3 发音、中翻转、右 1/3 笔记
+  // 点击：浮层内不处理；行内按设置的比例和功能分区
   card.addEventListener('click', (e) => {
     if (dragMoved) { dragMoved = false; return; }
     if (e.target.closest('.flip-panel')) return; // 浮层有自己的点击逻辑
     const rect = card.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    if (x < rect.width / 3) {
+    const b1 = rect.width * S.zone1 / 100;
+    const b2 = rect.width * S.zone2 / 100;
+    const act = x < b1 ? S.fns[0] : x < b2 ? S.fns[1] : S.fns[2];
+    if (act === 'speak') {
       speak(w.word, w.audio);
-    } else if (x < rect.width * 2 / 3) {
+    } else if (act === 'flip') {
       togglePanel(card);
     } else {
       const note = prompt('自定义笔记/释义（留空清除）', w.note || '');
       if (note === null) return;
-      api(`/api/words/${w.id}`, { method: 'PATCH', body: JSON.stringify({ note }) })
-        .then(r => r.json()).then(({ word: nw }) => {
-          if (!nw) return;
-          Object.assign(w, nw);
-          render();
-          if (note) toast('笔记已保存');
-        });
+      patchWord(w, { note });
+      if (note) toast('笔记已保存');
     }
   });
 }
 
-async function setStatus(w, status) {
-  const res = await api(`/api/words/${w.id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+async function patchWord(w, patch) {
+  const res = await api(`/api/words/${w.id}`, { method: 'PATCH', body: JSON.stringify(patch) });
   if (res.ok) {
     const { word: nw } = await res.json();
     Object.assign(w, nw);
@@ -326,6 +391,52 @@ async function addWord(raw) {
   hideLookup(); searchEl.value = ''; lastQuery = '';
   toast(`已收入 ${word} 🍪`);
 }
+
+/* ---------- 设置界面交互 ---------- */
+const settingsEl = $('#settings');
+$('#menu-btn').addEventListener('click', () => { syncSettingsUI(); settingsEl.classList.remove('hidden'); });
+$('#back-btn').addEventListener('click', () => settingsEl.classList.add('hidden'));
+
+function syncSettingsUI() {
+  document.querySelectorAll('#glyph-swatches .swatch').forEach(b => {
+    b.classList.toggle('active', b.dataset.v === S.glyph);
+    b.onclick = () => { S.glyph = b.dataset.v; saveSettings(); syncSettingsUI(); };
+  });
+  [['#fn-left', 0], ['#fn-mid', 1], ['#fn-right', 2]].forEach(([sel, i]) => { $(sel).value = S.fns[i]; });
+  $('#zone1').value = S.zone1; $('#zone1v').textContent = `左 ${S.zone1}%｜中 ${S.zone2 - S.zone1}%`;
+  $('#zone2').value = S.zone2; $('#zone2v').textContent = `中 ${S.zone2 - S.zone1}%｜右 ${100 - S.zone2}%`;
+  $('#c-rowbg').value = S.rowBg; $('#c-rowtext').value = S.rowText;
+  $('#c-panel').value = S.panelBg; $('#c-red').value = S.redColor;
+  $('#maxmem').value = S.maxMem;
+  $('#api-provider').value = S.apiProvider;
+  $('#api-key').value = S.apiKey;
+}
+
+function bindSettings() {
+  [['#fn-left', 0], ['#fn-mid', 1], ['#fn-right', 2]].forEach(([sel, i]) => {
+    $(sel).addEventListener('change', (e) => { S.fns[i] = e.target.value; saveSettings(); });
+  });
+  $('#zone1').addEventListener('input', (e) => {
+    S.zone1 = Math.min(Number(e.target.value), S.zone2 - 10);
+    e.target.value = S.zone1; saveSettings(); syncSettingsUI();
+  });
+  $('#zone2').addEventListener('input', (e) => {
+    S.zone2 = Math.max(Number(e.target.value), S.zone1 + 10);
+    e.target.value = S.zone2; saveSettings(); syncSettingsUI();
+  });
+  $('#c-rowbg').addEventListener('input', (e) => { S.rowBg = e.target.value; saveSettings(); render(); });
+  $('#c-rowtext').addEventListener('input', (e) => { S.rowText = e.target.value; saveSettings(); render(); });
+  $('#c-panel').addEventListener('input', (e) => { S.panelBg = e.target.value; saveSettings(); });
+  $('#c-red').addEventListener('input', (e) => { S.redColor = e.target.value; saveSettings(); render(); });
+  $('#maxmem').addEventListener('change', (e) => {
+    S.maxMem = Math.min(10, Math.max(1, Math.round(Number(e.target.value) || 1)));
+    e.target.value = S.maxMem; saveSettings(); render();
+  });
+  $('#api-provider').addEventListener('change', (e) => { S.apiProvider = e.target.value; saveSettings(); });
+  $('#api-key').addEventListener('change', (e) => { S.apiKey = e.target.value.trim(); saveSettings(); });
+}
+bindSettings();
+applySettings();
 
 /* ---------- 启动 ---------- */
 async function boot() {
