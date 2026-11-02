@@ -1,9 +1,11 @@
-const CACHE = 'biscuit-v8';
-const ASSETS = ['/', '/index.html', '/style.css', '/app.js', '/manifest.webmanifest', '/biscuit.svg',
+const CACHE = 'biscuit-v9';
+const PRECACHE = ['/', '/index.html', '/style.css', '/app.js', '/manifest.webmanifest', '/biscuit.svg',
   '/icons/icon-192.png', '/icons/icon-512.png'];
+// 联网优先清单：这几个文件只要在线就取最新版，杜绝"改了代码客户端不更新"
+const FRESH = new Set(['/index.html', '/app.js', '/style.css']);
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -20,7 +22,21 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/api/')) return;
   if (e.request.method !== 'GET') return;
 
-  // 同源静态资源：cache-first，后台更新
+  // HTML/JS/CSS：network-first——在线必拿最新，离线回退缓存
+  if (FRESH.has(url.pathname)) {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // 其余静态资源（图标等）：cache-first，后台更新
   e.respondWith(
     caches.match(e.request).then(cached => {
       const fetched = fetch(e.request).then(res => {

@@ -68,6 +68,7 @@ function getToken() { return localStorage.getItem('biscuit_token') || ''; }
 function askToken(withError = false) {
   return new Promise((resolve) => {
     const dlg = $('#token-dialog');
+    const form = dlg.querySelector('form');
     const inp = $('#token-input');
     inp.value = '';
     if (withError) {
@@ -89,12 +90,12 @@ function askToken(withError = false) {
         return;
       }
       localStorage.setItem('biscuit_token', t); // 立即持久化，刷新后免重登
-      dlg.onsubmit = null;
+      form.onsubmit = null;
       dlg.classList.remove('error');
       dlg.close();
       resolve(t);
     };
-    dlg.onsubmit = onSubmit; // 用 onsubmit 覆盖式绑定，避免重复 askToken 时监听器叠加
+    form.onsubmit = onSubmit; // 直接绑在 form 上，杜绝监听器叠加
   });
 }
 
@@ -516,7 +517,7 @@ async function boot() {
 
 // Service Worker 注册（仅 https/localhost）
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
 }
 
 boot();
