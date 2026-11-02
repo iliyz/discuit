@@ -78,14 +78,14 @@ main { height: 100%; overflow-y: auto; padding-top: calc(env(safe-area-inset-top
   padding: 12px 16px;
   user-select: none;
   touch-action: pan-y;
-  transition: opacity .25s, transform .25s;
+  transition: background .3s, color .3s, transform .25s, opacity .25s;
 }
 .card.known .row { opacity: .35; }
 .w { font-size: 17px; }
 .p { font-size: 13px; color: inherit; opacity: .65; margin-left: 8px; }
 .badge { font-size: 12px; color: var(--muted); flex-shrink: 0; }
 
-/* 红标记色块：右缘竖条，宽 = 行高/4，显示标记次数 */
+/* 红标记色块：右缘竖条，宽 = 行高/4，红色深度表示标记层级 */
 .redblock {
   position: absolute; top: 0; right: 0; bottom: 0;
   width: 13px;

@@ -24,6 +24,16 @@
 | 词典 | dictionaryapi.dev（英英/音标/mp3） |
 | 前端 | 原生 HTML/CSS/JS，无构建，Service Worker 离线缓存 |
 
+## 发音实现
+
+点击发音按以下优先级取音频：
+
+1. **dictionaryapi.dev 返回的真人 mp3**（收录词条时已缓存 `audio` 地址，美/英音视词条而定）
+2. **有道 dictvoice**（`dict.youdao.com/dictvoice`，非官方接口）：词典未提供 mp3 时回退使用
+3. **浏览器 speechSynthesis 合成**：mp3 播放失败（断网/接口失效）时最后兜底
+
+设置页「发音 → 发音源」可切换 **真人优先（native，默认）** 与 **设备合成（tts，直接用系统语音）**。
+
 ## 部署
 
 ```bash

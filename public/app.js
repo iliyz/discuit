@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   rowText: '#ffffff',            // 词条默认文字
   panelBg: '#ffffff',            // 释义窗口背景
   redColor: '#e0524d',           // 红标记色块
+  voice: 'native',               // 发音源：native=真人 mp3 优先，tts=设备合成
   maxMem: 1,                     // a：最大记忆次数单位，最深 3a 层
   apiProvider: 'azure',
   apiKey: '',
@@ -118,6 +119,7 @@ function speak(word, audioUrl) {
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
   };
+  if (S.voice === 'tts') { trySynth(); return; }
   const url = audioUrl || `https://dict.youdao.com/dictvoice?type=2&audio=${encodeURIComponent(word)}`;
   const a = new Audio(url);
   a.play().catch(trySynth);
@@ -175,9 +177,11 @@ function render() {
     if (w.phonetic) left.appendChild(el('span', 'p', w.phonetic));
     row.appendChild(left);
     if (w.red > 0) {
-      const rb = el('div', 'redblock', String(Math.ceil(w.red / 3)));
-      rb.style.background = S.redColor;
-      rb.style.opacity = String(Math.min(1, w.red / 3));
+      // 红标块不显示数字，用红色深度表达层级：1 次标记=40% 红、2 次=80%、3 次及以上=纯红
+      const marks = Math.ceil(w.red / 3);
+      const depth = Math.min(1, marks * 0.4);
+      const rb = el('div', 'redblock');
+      rb.style.background = mixHex('#ffffff', S.redColor, depth);
       row.appendChild(rb);
       row.style.paddingRight = '26px';
     }
@@ -232,10 +236,12 @@ function bindCard(card, w) {
   const hintL = card.querySelector('.hint.left');
   const hintR = card.querySelector('.hint.right');
   let startX = 0, startY = 0, dx = 0, active = false;
+  let totalMove = 0; // 本次 pointer 序列累计位移（>8px 一律不算点击）
 
   card.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.flip-panel')) return; // 浮层用于阅读/选择复制
     startX = e.clientX; startY = e.clientY; dx = 0; active = true; dragMoved = false;
+    totalMove = 0;
     card.setPointerCapture(e.pointerId);
   });
 
@@ -243,7 +249,9 @@ function bindCard(card, w) {
     if (!active) return;
     dx = e.clientX - startX;
     const dy = e.clientY - startY;
-    if (!dragMoved && Math.abs(dx) > DRAG_MIN && Math.abs(dx) > Math.abs(dy) * 1.2) {
+    totalMove = Math.max(totalMove, Math.hypot(dx, dy));
+    // 手指滑动普遍带垂直分量，阈值放宽到 0.9 倍
+    if (!dragMoved && Math.abs(dx) > DRAG_MIN && Math.abs(dx) > Math.abs(dy) * 0.9) {
       dragMoved = true;
       row.classList.add('swiping');
     }
@@ -288,7 +296,7 @@ function bindCard(card, w) {
 
   // 点击：浮层内不处理；行内按设置的比例和功能分区
   card.addEventListener('click', (e) => {
-    if (dragMoved) { dragMoved = false; return; }
+    if (dragMoved || totalMove > 8) { dragMoved = false; return; }
     if (e.target.closest('.flip-panel')) return; // 浮层有自己的点击逻辑
     const rect = card.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -408,6 +416,7 @@ function syncSettingsUI() {
   $('#c-rowbg').value = S.rowBg; $('#c-rowtext').value = S.rowText;
   $('#c-panel').value = S.panelBg; $('#c-red').value = S.redColor;
   $('#maxmem').value = S.maxMem;
+  $('#voice-src').value = S.voice;
   $('#api-provider').value = S.apiProvider;
   $('#api-key').value = S.apiKey;
 }
@@ -432,6 +441,7 @@ function bindSettings() {
     S.maxMem = Math.min(10, Math.max(1, Math.round(Number(e.target.value) || 1)));
     e.target.value = S.maxMem; saveSettings(); render();
   });
+  $('#voice-src').addEventListener('change', (e) => { S.voice = e.target.value === 'tts' ? 'tts' : 'native'; saveSettings(); });
   $('#api-provider').addEventListener('change', (e) => { S.apiProvider = e.target.value; saveSettings(); });
   $('#api-key').addEventListener('change', (e) => { S.apiKey = e.target.value.trim(); saveSettings(); });
 }
