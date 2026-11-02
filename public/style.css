@@ -152,35 +152,57 @@ main { height: 100%; overflow-y: auto; padding-top: calc(env(safe-area-inset-top
 }
 #toast.show { opacity: 1; }
 
-/* ---------- 口令对话框 ---------- */
+/* ---------- 登录界面：discuit 绿全屏 + 白色图标 + 白色口令条 ---------- */
 #token-dialog {
-  border: 1px solid var(--line);
-  border-radius: 0;
-  padding: 28px 30px;
-  text-align: center;
+  border: none; border-radius: 0;
+  margin: 0;
+  width: 100vw; max-width: 100vw;
+  height: 100vh; max-height: 100vh;
+  padding: 0;
+  background: #36ab60;
+  display: flex; align-items: center; justify-content: center;
 }
-#token-dialog::backdrop { background: rgba(255,255,255,.92); }
-#token-dialog h2 { font-size: 19px; margin-bottom: 10px; font-weight: 500; }
-#token-dialog p { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
-#token-input {
-  width: 100%; padding: 10px 14px;
-  border: none; border-bottom: 1px solid var(--text);
-  border-radius: 0;
-  font-size: 16px; text-align: center; outline: none;
-  background: #fff; color: var(--text);
-  box-sizing: border-box;
+#token-dialog[open] { display: flex; }
+#token-dialog::backdrop { background: #36ab60; }
+#token-dialog form {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 56px;
+  width: 100%;
 }
-#token-dialog button {
-  margin-top: 18px;
-  width: 100%; padding: 11px 0;
-  border: 1px solid var(--text);
-  border-radius: 0;
-  background: #fff; color: var(--text);
-  font-size: 15px; cursor: pointer;
+.login-logo { width: 104px; height: 104px; }
+
+/* 白色输入条：口令 + 右侧箭头（▜ 倾斜 45°） */
+.login-row {
+  display: flex; align-items: stretch;
+  width: min(72vw, 320px);
+  background: #fff;
 }
-#token-dialog button:active { background: #f2f2f2; }
-.token-error { color: #d64541 !important; }
-.token-error.hidden { display: none; }
+.login-row input {
+  flex: 1; min-width: 0;
+  border: none; border-radius: 0; outline: none;
+  background: #fff;
+  padding: 14px 16px;
+  font-size: 16px;
+  color: #1a1a1a;
+  letter-spacing: 2px;
+}
+.login-go {
+  width: 52px; flex-shrink: 0;
+  border: none; border-radius: 0;
+  background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0;
+}
+.login-go svg { width: 17px; height: 21px; fill: #36ab60; display: block; }
+.login-go:active { background: #f0f0f0; }
+
+/* 出错反馈：不显示文字，输入条红描边 + 抖动 */
+#token-dialog.error .login-row { box-shadow: inset 0 0 0 2px #d64541; animation: shake .3s; }
+@keyframes shake {
+  20% { transform: translateX(-6px); }
+  50% { transform: translateX(5px); }
+  80% { transform: translateX(-3px); }
+}
 
 /* ---------- 设置界面 ---------- */
 #settings {

@@ -63,22 +63,33 @@ function applySettings() {
 /* ---------- API ---------- */
 function getToken() { return localStorage.getItem('biscuit_token') || ''; }
 
-// 口令对话框（<dialog>）：Promise 在提交时 resolve 输入值
-function askToken() {
+// 登录界面（<dialog> 全屏绿）：Promise 在提交时 resolve 输入值
+// withError=true 时以红描边抖动打开（口令不对重开）；不显示任何文字提示
+function askToken(withError = false) {
   return new Promise((resolve) => {
     const dlg = $('#token-dialog');
     const inp = $('#token-input');
-    const err = $('#token-error');
     inp.value = '';
-    err.classList.add('hidden');
+    if (withError) {
+      // 重新触发动画：先移除类，下一帧再加回
+      dlg.classList.remove('error');
+      void dlg.offsetWidth;
+      dlg.classList.add('error');
+    }
     if (!dlg.open) dlg.showModal();
     inp.focus();
+    inp.oninput = () => dlg.classList.remove('error');
     const onSubmit = (e) => {
       e.preventDefault();
       const t = inp.value.trim();
-      if (!t) { err.textContent = '口令不能为空'; err.classList.remove('hidden'); return; }
-      localStorage.setItem('biscuit_token', t);
+      if (!t) {
+        dlg.classList.remove('error');
+        void dlg.offsetWidth;
+        dlg.classList.add('error');
+        return;
+      }
       dlg.removeEventListener('submit', onSubmit);
+      dlg.classList.remove('error');
       dlg.close();
       resolve(t);
     };
@@ -95,7 +106,7 @@ async function api(path, opts = {}, _retried = false) {
   if (res.status === 401) {
     localStorage.removeItem('biscuit_token');
     if (_retried) throw new Error('unauthorized');
-    await askToken();
+    await askToken(true);
     return api(path, opts, true); // 最多重试一次
   }
   return res;
