@@ -264,9 +264,14 @@ function bindCard(card, w) {
     hintR.classList.toggle('show', dx > LIGHT);
   });
 
-  const finish = async () => {
+  const finish = async (ev) => {
     if (!active) return;
     active = false;
+    // 用 pointerup 的最终坐标判定：快速甩动时最后一次 pointermove 的位移可能远落后于真实落点
+    if (ev && ev.clientX) {
+      dx = ev.clientX - startX;
+      totalMove = Math.max(totalMove, Math.hypot(dx, ev.clientY - startY));
+    }
     if (!dragMoved) { return; }
     row.classList.remove('swiping');
     hintL.classList.remove('show'); hintR.classList.remove('show');
@@ -277,22 +282,29 @@ function bindCard(card, w) {
       patchWord(w, { tail: 1 }).then(() => toast(`${w.word} 已移到底部`));
     } else if (dx <= -LIGHT) {
       // 左滑轻：先抵消红标记（3 次轻滑抵 1 次，红块随之逐级减淡），否则记忆 +1（颜色变浅）
-      if (w.red > 0) patchWord(w, { red: Math.max(0, w.red - 1) });
-      else patchWord(w, { mem: Math.min(3 * S.maxMem, (w.mem || 0) + 1) });
+      if (w.red > 0) {
+        const nr = Math.max(0, w.red - 1);
+        patchWord(w, { red: nr }).then(() => toast(nr === 0 ? '标记已清零' : `标记减淡（再 ${nr} 次轻滑抵完）`));
+      } else {
+        const nm = Math.min(3 * S.maxMem, (w.mem || 0) + 1);
+        patchWord(w, { mem: nm }).then(() => toast(nm >= 3 * S.maxMem ? `${w.word} 已记满（${nm}/${3 * S.maxMem}）` : `${w.word} 记住 +1（${nm}/${3 * S.maxMem}）`));
+      }
     } else if (dx >= bigAt) {
       // 右滑大距离：红标记 +1（服务端以 1/3 为单位存储），深度由 maxMarks 控制
-      patchWord(w, { red: Math.min(3 * Math.max(1, S.maxMarks), (w.red || 0) + 3) });
+      const nr = Math.min(3 * Math.max(1, S.maxMarks), (w.red || 0) + 3);
+      patchWord(w, { red: nr }).then(() => toast(nr >= 3 * S.maxMarks ? `⚑ 标记已满（${S.maxMarks}/${S.maxMarks}）` : `⚑ 标记 ${Math.round(nr / 3)}/${S.maxMarks}`));
     } else if (dx >= LIGHT) {
       // 右滑轻：记忆 -1（颜色变深回绿）
-      patchWord(w, { mem: Math.max(0, (w.mem || 0) - 1) });
+      const nm = Math.max(0, (w.mem || 0) - 1);
+      patchWord(w, { mem: nm }).then(() => toast(`记住 -1（${nm}/${3 * S.maxMem}）`));
     }
   };
 
   card.addEventListener('pointerup', finish);
   // 手机上手指带垂直分量时浏览器会接管滚动并触发 pointercancel：
   // 若拖动已成立则按最后位移完成手势，避免滑动被静默丢弃
-  card.addEventListener('pointercancel', () => {
-    if (active && dragMoved) finish();
+  card.addEventListener('pointercancel', (e) => {
+    if (active && dragMoved) finish(e);
     active = false;
     row.classList.remove('swiping');
     row.style.transform = '';
