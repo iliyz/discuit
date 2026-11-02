@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   rowText: '#ffffff',            // 词条默认文字
   panelBg: '#ffffff',            // 释义窗口背景
   redColor: '#e0524d',           // 红标记色块
+  maxMarks: 3,                   // 最大标记次数：右滑大距离累计次数上限，深度 = red/(3*maxMarks)
   voice: 'native',               // 发音源：native=真人 mp3 优先，tts=设备合成
   maxMem: 1,                     // a：最大记忆次数单位，最深 3a 层
   apiProvider: 'azure',
@@ -177,9 +178,8 @@ function render() {
     if (w.phonetic) left.appendChild(el('span', 'p', w.phonetic));
     row.appendChild(left);
     if (w.red > 0) {
-      // 红标块不显示数字，用红色深度表达层级：1 次标记=40% 红、2 次=80%、3 次及以上=纯红
-      const marks = Math.ceil(w.red / 3);
-      const depth = Math.min(1, marks * 0.4);
+      // 红标块不显示数字，深度随标记量连续变化：maxMarks 次右滑到底 = 纯红，左轻滑逐级减淡
+      const depth = Math.min(1, w.red / (3 * Math.max(1, S.maxMarks)));
       const rb = el('div', 'redblock');
       rb.style.background = mixHex('#ffffff', S.redColor, depth);
       row.appendChild(rb);
@@ -228,8 +228,7 @@ function render() {
 
 /* ---------- 手势 + 点击（Pointer Events 统一触摸/鼠标） ---------- */
 const DRAG_MIN = 10;   // 触发拖动阈值
-const LIGHT = 44;      // 轻滑阈值
-const BIG = 130;       // 大距离阈值
+const LIGHT = 44;      // 轻滑阈值（大距离阈值 bigAt 在 bindCard 内按行宽自适应）
 
 function bindCard(card, w) {
   const row = card.querySelector('.row');
@@ -237,12 +236,14 @@ function bindCard(card, w) {
   const hintR = card.querySelector('.hint.right');
   let startX = 0, startY = 0, dx = 0, active = false;
   let totalMove = 0; // 本次 pointer 序列累计位移（>8px 一律不算点击）
+  let bigAt = 140;   // 「大距离」阈值：随行宽自适应，防止手机上普通轻滑被误判成移到底部
 
   card.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.flip-panel')) return; // 浮层用于阅读/选择复制
     startX = e.clientX; startY = e.clientY; dx = 0; active = true; dragMoved = false;
     totalMove = 0;
-    card.setPointerCapture(e.pointerId);
+    bigAt = Math.max(140, card.getBoundingClientRect().width * 0.5);
+    try { card.setPointerCapture(e.pointerId); } catch {}
   });
 
   card.addEventListener('pointermove', (e) => {
@@ -257,9 +258,9 @@ function bindCard(card, w) {
     }
     if (!dragMoved) return;
     row.style.transform = `translateX(${dx}px)`;
-    hintL.textContent = dx < -BIG ? '⤓ 底部' : '＋1 记住';
+    hintL.textContent = dx < -bigAt ? '⤓ 底部' : '＋1 记住';
     hintL.classList.toggle('show', dx < -LIGHT);
-    hintR.textContent = dx > BIG ? '⚑ 标记' : '－1';
+    hintR.textContent = dx > bigAt ? '⚑ 标记' : '－1';
     hintR.classList.toggle('show', dx > LIGHT);
   });
 
@@ -271,16 +272,16 @@ function bindCard(card, w) {
     hintL.classList.remove('show'); hintR.classList.remove('show');
     row.style.transform = '';
 
-    if (dx <= -BIG) {
+    if (dx <= -bigAt) {
       // 左滑大距离：移到列表尾部
       patchWord(w, { tail: 1 }).then(() => toast(`${w.word} 已移到底部`));
     } else if (dx <= -LIGHT) {
-      // 左滑轻：先抵消红标记（3 次轻滑抵 1 次），否则记忆 +1（颜色变浅）
+      // 左滑轻：先抵消红标记（3 次轻滑抵 1 次，红块随之逐级减淡），否则记忆 +1（颜色变浅）
       if (w.red > 0) patchWord(w, { red: Math.max(0, w.red - 1) });
       else patchWord(w, { mem: Math.min(3 * S.maxMem, (w.mem || 0) + 1) });
-    } else if (dx >= BIG) {
-      // 右滑大距离：红标记 +1（服务端以 1/3 为单位存储）
-      patchWord(w, { red: Math.min(99, (w.red || 0) + 3) });
+    } else if (dx >= bigAt) {
+      // 右滑大距离：红标记 +1（服务端以 1/3 为单位存储），深度由 maxMarks 控制
+      patchWord(w, { red: Math.min(3 * Math.max(1, S.maxMarks), (w.red || 0) + 3) });
     } else if (dx >= LIGHT) {
       // 右滑轻：记忆 -1（颜色变深回绿）
       patchWord(w, { mem: Math.max(0, (w.mem || 0) - 1) });
@@ -288,7 +289,10 @@ function bindCard(card, w) {
   };
 
   card.addEventListener('pointerup', finish);
+  // 手机上手指带垂直分量时浏览器会接管滚动并触发 pointercancel：
+  // 若拖动已成立则按最后位移完成手势，避免滑动被静默丢弃
   card.addEventListener('pointercancel', () => {
+    if (active && dragMoved) finish();
     active = false;
     row.classList.remove('swiping');
     row.style.transform = '';
@@ -416,6 +420,7 @@ function syncSettingsUI() {
   $('#c-rowbg').value = S.rowBg; $('#c-rowtext').value = S.rowText;
   $('#c-panel').value = S.panelBg; $('#c-red').value = S.redColor;
   $('#maxmem').value = S.maxMem;
+  $('#maxmarks').value = S.maxMarks;
   $('#voice-src').value = S.voice;
   $('#api-provider').value = S.apiProvider;
   $('#api-key').value = S.apiKey;
@@ -440,6 +445,10 @@ function bindSettings() {
   $('#maxmem').addEventListener('change', (e) => {
     S.maxMem = Math.min(10, Math.max(1, Math.round(Number(e.target.value) || 1)));
     e.target.value = S.maxMem; saveSettings(); render();
+  });
+  $('#maxmarks').addEventListener('change', (e) => {
+    S.maxMarks = Math.min(10, Math.max(1, Math.round(Number(e.target.value) || 3)));
+    e.target.value = S.maxMarks; saveSettings(); render();
   });
   $('#voice-src').addEventListener('change', (e) => { S.voice = e.target.value === 'tts' ? 'tts' : 'native'; saveSettings(); });
   $('#api-provider').addEventListener('change', (e) => { S.apiProvider = e.target.value; saveSettings(); });

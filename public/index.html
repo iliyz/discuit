@@ -16,7 +16,7 @@
 <body>
   <header>
     <div class="head-row">
-      <button id="menu-btn" class="glyph-btn" aria-label="设置">▛</button>
+      <button id="menu-btn" class="glyph-btn" aria-label="设置"><svg viewBox="0 0 100 100" aria-hidden="true"><rect x="0" y="0" width="50" height="50"/><rect x="50" y="0" width="50" height="50"/><rect x="0" y="50" width="50" height="50"/></svg></button>
       <input id="search" type="search" autocomplete="off" spellcheck="false"
              placeholder="输入单词，回车添加" aria-label="搜索单词">
     </div>
@@ -28,12 +28,12 @@
   </main>
   <section id="settings" class="hidden">
     <div class="set-head">
-      <button id="back-btn" class="glyph-btn" aria-label="返回单词列表">▟</button>
+      <button id="back-btn" class="glyph-btn" aria-label="返回单词列表"><svg viewBox="0 0 100 100" aria-hidden="true"><rect x="50" y="0" width="50" height="50"/><rect x="0" y="50" width="50" height="50"/><rect x="50" y="50" width="50" height="50"/></svg></button>
       <span class="set-title">设置</span>
     </div>
     <div class="set-body">
       <div class="set-group">
-        <h3>角标颜色（▛ / ▟）</h3>
+        <h3>角标颜色</h3>
         <div class="swatches" id="glyph-swatches">
           <button class="swatch" data-v="#36ab60" style="background:#36ab60"></button>
           <button class="swatch" data-v="#000000" style="background:#000"></button>
@@ -74,7 +74,8 @@
       <div class="set-group">
         <h3>记忆</h3>
         <label class="set-line">最大记忆次数 a<input type="number" id="maxmem" min="1" max="10" step="1"></label>
-        <p class="set-note">左轻滑 +1 层（变浅），右轻滑 -1 层（变深），最深到 3a；红标记需 3 次左轻滑抵消 1 次。</p>
+        <label class="set-line">最大标记次数<input type="number" id="maxmarks" min="1" max="10" step="1"></label>
+        <p class="set-note">左轻滑 +1 层（变浅），右轻滑 -1 层（变深），最深到 3a；红标记需 3 次左轻滑抵消 1 次。右滑到底累计「最大标记次数」次后色块达最红，左轻滑逐级减淡。</p>
       </div>
       <div class="set-group">
         <h3>翻译 API</h3>
