@@ -21,6 +21,7 @@
 
 ## 线上环境（2026-11-02 已上线）
 - 地址：https://biscuit.iliy.workers.dev
+- 口令：discuit6367（用户自定，2026-11-02 晚起生效，.dev.vars 同步）
 - CF 账号 iliy（yinzhi6367@gmail.com），Account ID ceedd6542e165201118a88d7afe8b83f
 - D1：biscuit-db，id 8e522098-3396-4310-91c1-9f5f81c81360，区域 WNAM（创建时未指定，可在 CF 后台改）
 - GitHub：https://github.com/iliyz/discuit.git（仓库名叫 discuit，项目名 biscuit，不影响）
