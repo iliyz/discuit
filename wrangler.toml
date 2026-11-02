@@ -12,7 +12,7 @@ run_worker_first = ["/api/*"]
 [[d1_databases]]
 binding = "DB"
 database_name = "biscuit-db"
-database_id = "TO_BE_FILLED_AFTER_CREATE"
+database_id = "8e522098-3396-4310-91c1-9f5f81c81360"
 
 # 环境变量说明：
 # APP_TOKEN               — 访问口令（wrangler secret put APP_TOKEN）
