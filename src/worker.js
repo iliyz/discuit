@@ -8,12 +8,25 @@ const json = (data, status = 200) =>
 
 const STATUSES = new Set(['new', 'known', 'star']);
 
-// ---- 鉴权：/api/* 全部要求 Bearer APP_TOKEN ----
-function auth(req, env) {
-  if (!env.APP_TOKEN) return { ok: false, res: json({ error: 'APP_TOKEN not configured' }, 500) };
-  const auth = req.headers.get('Authorization') || '';
-  if (auth !== `Bearer ${env.APP_TOKEN}`) return { ok: false, res: json({ error: 'unauthorized' }, 401) };
-  return { ok: true };
+// ---- 鉴权：/api/* 全部要求 Bearer 口令 ----
+// 口令验证顺序：D1 config 表的 SHA-256 哈希（设置页修改后生效）→ env secret APP_TOKEN（初始后备）
+async function sha256Hex(s) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function auth(req, env) {
+  const h = req.headers.get('Authorization') || '';
+  const token = h.startsWith('Bearer ') ? h.slice(7) : '';
+  if (!token) return { ok: false, res: json({ error: 'unauthorized' }, 401) };
+  const hash = await sha256Hex(token);
+  const row = await env.DB.prepare(`SELECT value FROM config WHERE key = 'app_token_hash'`).first().catch(() => null);
+  if (row) {
+    if (row.value === hash) return { ok: true };
+    return { ok: false, res: json({ error: 'unauthorized' }, 401) };
+  }
+  if (env.APP_TOKEN && token === env.APP_TOKEN) return { ok: true };
+  return { ok: false, res: json({ error: 'unauthorized' }, 401) };
 }
 
 // ---- 路由 ----
@@ -24,7 +37,7 @@ export default {
       return env.ASSETS.fetch(req); // 静态资源
     }
 
-    const a = auth(req, env);
+    const a = await auth(req, env);
     if (!a.ok) return a.res;
 
     try {
@@ -33,6 +46,7 @@ export default {
       if (url.pathname === '/api/words' && req.method === 'POST') return addWord(env, req);
       if (m && req.method === 'PATCH')  return patchWord(env, Number(m[1]), req);
       if (m && req.method === 'DELETE') return deleteWord(env, Number(m[1]));
+      if (url.pathname === '/api/password' && req.method === 'POST') return changePassword(env, req);
       if (url.pathname === '/api/lookup' && req.method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();
         if (!q || q.length > 64) return json({ error: 'invalid q' }, 400);
@@ -126,5 +140,17 @@ async function patchWord(env, id, req) {
 async function deleteWord(env, id) {
   const info = await env.DB.prepare('DELETE FROM words WHERE id = ?1').bind(id).run();
   if (info.meta.changes === 0) return json({ error: 'not found' }, 404);
+  return json({ ok: true });
+}
+
+// 修改访问口令（需已通过当前口令鉴权）：只存 SHA-256 哈希，不存明文
+async function changePassword(env, req) {
+  const body = await req.json().catch(() => null);
+  const next = String(body?.next || '');
+  if (next.length < 6 || next.length > 64) return json({ error: '口令长度需 6-64 字符' }, 400);
+  const hash = await sha256Hex(next);
+  await env.DB.prepare(
+    `INSERT INTO config (key, value) VALUES ('app_token_hash', ?1) ON CONFLICT(key) DO UPDATE SET value = ?1`
+  ).bind(hash).run();
   return json({ ok: true });
 }

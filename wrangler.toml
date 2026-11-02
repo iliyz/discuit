@@ -2,6 +2,11 @@ name = "biscuit"
 main = "src/worker.js"
 compatibility_date = "2026-09-01"
 
+# 自定义域名（iliy.net 已托管在本 CF 账号；deploy 时自动创建 DNS + 证书）
+routes = [
+  { pattern = "biscuit.iliy.net", custom_domain = true }
+]
+
 # 静态资源 + 同一 Worker 提供 API
 [assets]
 directory = "./public"

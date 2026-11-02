@@ -78,6 +78,13 @@
         <p class="set-note">左轻滑 +1 层（变浅），右轻滑 -1 层（变深），最深到 3a；红标记需 3 次左轻滑抵消 1 次。右滑到底累计「最大标记次数」次后色块达最红，左轻滑逐级减淡。</p>
       </div>
       <div class="set-group">
+        <h3>访问口令</h3>
+        <label class="set-line">新口令<input type="password" id="new-token" autocomplete="new-password" placeholder="至少 6 位"></label>
+        <label class="set-line">确认口令<input type="password" id="new-token2" autocomplete="new-password"></label>
+        <button id="save-token" class="set-btn" type="button">修改口令</button>
+        <p class="set-note">修改后本机立即生效；其他设备需输入新口令重新登录。服务器初始口令始终可用作后备登录。</p>
+      </div>
+      <div class="set-group">
         <h3>翻译 API</h3>
         <label class="set-line">服务商<select id="api-provider">
           <option value="azure">Azure Translator</option>

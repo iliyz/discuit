@@ -465,6 +465,20 @@ function bindSettings() {
   $('#voice-src').addEventListener('change', (e) => { S.voice = e.target.value === 'tts' ? 'tts' : 'native'; saveSettings(); });
   $('#api-provider').addEventListener('change', (e) => { S.apiProvider = e.target.value; saveSettings(); });
   $('#api-key').addEventListener('change', (e) => { S.apiKey = e.target.value.trim(); saveSettings(); });
+  $('#save-token').addEventListener('click', async () => {
+    const t1 = $('#new-token').value, t2 = $('#new-token2').value;
+    if (t1.length < 6) return toast('口令至少 6 位');
+    if (t1 !== t2) return toast('两次输入不一致');
+    const res = await api('/api/password', { method: 'POST', body: JSON.stringify({ next: t1 }) });
+    if (res.ok) {
+      localStorage.setItem('biscuit_token', t1);
+      $('#new-token').value = ''; $('#new-token2').value = '';
+      toast('口令已修改，其他设备需用新口令重新登录');
+    } else {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error || '修改失败');
+    }
+  });
 }
 bindSettings();
 applySettings();

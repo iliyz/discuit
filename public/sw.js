@@ -1,4 +1,4 @@
-const CACHE = 'biscuit-v5';
+const CACHE = 'biscuit-v6';
 const ASSETS = ['/', '/index.html', '/style.css', '/app.js', '/manifest.webmanifest', '/biscuit.svg',
   '/icons/icon-192.png', '/icons/icon-512.png'];
 
