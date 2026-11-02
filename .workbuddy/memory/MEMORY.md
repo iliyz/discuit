@@ -19,9 +19,17 @@
 - 模型选择结论：Kimi-K3 最佳 / GLM-5.2 次选（前端主导 + 多轮迭代任务）
 - git 已 init，GitHub remote 待用户提供仓库地址
 
+## 线上环境（2026-11-02 已上线）
+- 地址：https://biscuit.iliy.workers.dev
+- CF 账号 iliy（yinzhi6367@gmail.com），Account ID ceedd6542e165201118a88d7afe8b83f
+- D1：biscuit-db，id 8e522098-3396-4310-91c1-9f5f81c81360，区域 WNAM（创建时未指定，可在 CF 后台改）
+- GitHub：https://github.com/iliyz/discuit.git（仓库名叫 discuit，项目名 biscuit，不影响）
+- 本机直连 workers.dev 不通，需走本地代理 127.0.0.1:49637；测线上用 node + undici ProxyAgent
+- 已知小瑕疵：dictionaryapi.dev 约 8% 的词只有 mp3 无 IPA 文本（如 resilient），音标留空
+
 ## 待办
-- [ ] 用户给 TMT SecretId/SecretKey → wrangler secret put
-- [ ] wrangler d1 create biscuit-db → 回填 wrangler.toml 的 database_id
-- [ ] wrangler login 授权 → deploy
-- [ ] GitHub remote + push
-- [ ] 自定义域名（workers.dev 国内不通）
+- [x] wrangler login → d1 create → remote migration → secrets → deploy（2026-11-02 完成）
+- [x] GitHub remote + push
+- [ ] APP_TOKEN 目前是脚本生成的 biscuit-af19aa87ec22e8b50e，用户可自行更换
+- [ ] Azure key 已出现在聊天记录，建议在门户重新生成后更新 secret
+- [ ] 自定义域名（workers.dev 国内不通，用户暂不考虑）
