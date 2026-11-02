@@ -5,7 +5,9 @@
 - 静态资源 `public/`（vanilla JS 无构建），assets 绑定 + `run_worker_first = ["/api/*"]`
 - D1：`words` 表 + `dict_cache`（7 天 TTL）；migration 在 `migrations/`
 - 鉴权：单人 Bearer `APP_TOKEN`（secret）；本地 `.dev.vars` = local-dev-token
-- 词典链：dictionaryapi.dev（英英/音标/mp3）→ 翻译 TMT（HMAC-SHA256，需 key）→ MyMemory 兜底（质量差，如 biscuit→"姆鲁古"）→ 发音兜底 dict.youdao.com/dictvoice
+- 词典链：dictionaryapi.dev（英英/音标/mp3）→ 翻译链 Azure→百度→MyMemory → 发音兜底 dict.youdao.com/dictvoice
+- 翻译引擎最终定为 Azure AI Translator F0（200 万字符/月永久免费，超额拒绝不扣费）；key 在 .dev.vars，部署时 wrangler secret put；region=eastasia
+- 用户纠正记录：腾讯云 TMT 已无免费额度（2026-10 文档）；DeepL 月度免费层已取消（新人一次性 100 万字符）；方案级变更必须先确认再动代码
 
 ## 手势约定（对齐 ifanr biscuit 原版）
 - 点中 1/3=翻转释义；点左=发音；点右=笔记；背面点译文=改翻译
