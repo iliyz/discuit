@@ -88,12 +88,13 @@ function askToken(withError = false) {
         dlg.classList.add('error');
         return;
       }
-      dlg.removeEventListener('submit', onSubmit);
+      localStorage.setItem('biscuit_token', t); // 立即持久化，刷新后免重登
+      dlg.onsubmit = null;
       dlg.classList.remove('error');
       dlg.close();
       resolve(t);
     };
-    dlg.addEventListener('submit', onSubmit);
+    dlg.onsubmit = onSubmit; // 用 onsubmit 覆盖式绑定，避免重复 askToken 时监听器叠加
   });
 }
 

@@ -193,7 +193,7 @@ main { height: 100%; overflow-y: auto; padding-top: calc(env(safe-area-inset-top
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; padding: 0;
 }
-.login-go svg { width: 17px; height: 21px; fill: #36ab60; display: block; }
+.login-go svg { width: 20px; height: 20px; fill: #36ab60; display: block; }
 .login-go:active { background: #f0f0f0; }
 
 /* 出错反馈：不显示文字，输入条红描边 + 抖动 */
