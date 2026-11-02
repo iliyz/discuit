@@ -1,7 +1,7 @@
-const CACHE = 'biscuit-v9';
-const PRECACHE = ['/', '/index.html', '/style.css', '/app.js', '/manifest.webmanifest', '/biscuit.svg',
+const CACHE = 'biscuit-v10';
+const PRECACHE = ['/', '/index.html', '/style.css?v=1103b', '/app.js?v=1103b', '/manifest.webmanifest', '/biscuit.svg',
   '/icons/icon-192.png', '/icons/icon-512.png'];
-// 联网优先清单：这几个文件只要在线就取最新版，杜绝"改了代码客户端不更新"
+// 联网优先清单（按去查询串后的路径匹配）：在线必拿最新，离线回退缓存
 const FRESH = new Set(['/index.html', '/app.js', '/style.css']);
 
 self.addEventListener('install', (e) => {

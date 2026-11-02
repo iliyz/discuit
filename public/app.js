@@ -517,7 +517,13 @@ async function boot() {
 }
 
 // Service Worker 注册（仅 https/localhost）
+const SW_VERSION = 'v1103b';
+console.log(`biscuit 前端版本 ${SW_VERSION}`); // 诊断用：控制台可见当前版本
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  // 自愈：清掉所有旧版本缓存（只保留当前 biscuit-v10），防止老 SW 反复喂旧代码
+  caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k.startsWith('biscuit-') && k !== 'biscuit-v10').map(k => caches.delete(k)))
+  ).catch(() => {});
   navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
 }
 
