@@ -84,6 +84,21 @@ function el(tag, cls, text) {
   return e;
 }
 
+function closePanel(card) {
+  card.classList.remove('open');
+  card.querySelector('.flip-panel')?.classList.add('hidden');
+}
+
+function togglePanel(card) {
+  const panel = card.querySelector('.flip-panel');
+  const isOpen = !panel.classList.contains('hidden');
+  // 同一时间只展开一个
+  document.querySelectorAll('.card.open').forEach(c => closePanel(c));
+  if (isOpen) return; // 再点一次=收起
+  card.classList.add('open');
+  panel.classList.remove('hidden');
+}
+
 function render() {
   listEl.textContent = '';
   emptyEl.classList.toggle('hidden', words.length > 0);
@@ -92,39 +107,49 @@ function render() {
     const card = el('li', `card ${w.status}`);
     card.dataset.id = w.id;
 
-    const inner = el('div', 'inner');
-
-    // 正面：word + 音标 + 状态徽标
-    const front = el('div', 'face front');
+    // 行：word + 音标 + 状态徽标
+    const row = el('div', 'row');
     const left = el('div');
-    const wEl = el('span', 'w', w.word);
-    left.appendChild(wEl);
+    left.appendChild(el('span', 'w', w.word));
     if (w.phonetic) left.appendChild(el('span', 'p', w.phonetic));
-    front.appendChild(left);
-    front.appendChild(el('span', 'badge', w.status === 'star' ? '⭐' : w.status === 'known' ? '✓' : ''));
+    row.appendChild(left);
+    row.appendChild(el('span', 'badge', w.status === 'star' ? '⭐' : w.status === 'known' ? '✓' : ''));
 
     const hintL = el('div', 'hint left');
     const hintR = el('div', 'hint right');
-    front.append(hintL, hintR);
+    row.append(hintL, hintR);
 
-    // 背面：翻译/释义/笔记（点击译文可手动修正）
-    const back = el('div', 'face back');
+    // 翻转浮层：锚在行顶、同宽、覆盖在列表之上（不挤压列表）
+    const panel = el('div', 'flip-panel hidden');
+    const head = el('div', 'fp-head');
+    const hLeft = el('div');
+    hLeft.appendChild(el('span', 'w', w.word));
+    if (w.phonetic) hLeft.appendChild(el('span', 'p', w.phonetic));
+    head.appendChild(hLeft);
+    head.appendChild(el('span', 'badge', '收起 ▲'));
+    head.addEventListener('click', () => closePanel(card)); // 点回单词行的位置 → 翻回
+
+    const body = el('div', 'fp-body');
     if (w.translation) {
       const t = el('div', 't', w.translation);
-      t.title = '点击修改译文';
-      t.addEventListener('click', () => editTranslation(w));
-      back.appendChild(t);
+      t.title = '单击修改译文；长按/拖选可复制';
+      t.addEventListener('click', () => {
+        const sel = String(window.getSelection() || '');
+        if (sel.length) return; // 正在选中文本，不触发编辑
+        editTranslation(w);
+      });
+      body.appendChild(t);
     }
-    if (w.definition)  back.appendChild(el('div', 'd', w.definition));
-    if (w.note)        back.appendChild(el('div', 'n', `📝 ${w.note}`));
+    if (w.definition)  body.appendChild(el('div', 'd', w.definition));
+    if (w.note)        body.appendChild(el('div', 'n', `📝 ${w.note}`));
     if (!w.translation && !w.definition && !w.note) {
       const d = el('div', 'd', '暂无译文，点击添加');
       d.addEventListener('click', () => editTranslation(w));
-      back.appendChild(d);
+      body.appendChild(d);
     }
 
-    inner.append(front, back);
-    card.appendChild(inner);
+    panel.append(head, body);
+    card.append(row, panel);
     bindCard(card, w);
     listEl.appendChild(card);
   }
@@ -136,13 +161,13 @@ const MARK = 44;            // 标记阈值
 const DELETE_AT = 130;      // 左滑删除阈值
 
 function bindCard(card, w) {
-  const inner = card.querySelector('.inner');
+  const row = card.querySelector('.row');
   const hintL = card.querySelector('.hint.left');
   const hintR = card.querySelector('.hint.right');
   let startX = 0, startY = 0, dx = 0, active = false;
 
   card.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.face.back')) return; // 背面用于阅读/滚动
+    if (e.target.closest('.flip-panel')) return; // 浮层用于阅读/选择复制
     startX = e.clientX; startY = e.clientY; dx = 0; active = true; dragMoved = false;
     card.setPointerCapture(e.pointerId);
   });
@@ -153,10 +178,10 @@ function bindCard(card, w) {
     const dy = e.clientY - startY;
     if (!dragMoved && Math.abs(dx) > DRAG_MIN && Math.abs(dx) > Math.abs(dy) * 1.2) {
       dragMoved = true;
-      card.classList.add('dragging', 'swiping');
+      row.classList.add('swiping');
     }
     if (!dragMoved) return;
-    inner.style.transform = `translateX(${dx}px)`;
+    row.style.transform = `translateX(${dx}px)`;
     const del = dx < -DELETE_AT;
     hintL.textContent = del ? '🗑 删除' : '✓ 认识';
     hintL.classList.toggle('show', dx < -MARK);
@@ -167,11 +192,10 @@ function bindCard(card, w) {
   const finish = async () => {
     if (!active) return;
     active = false;
-    if (!dragMoved) { dragDone(); return; }
-    card.classList.remove('dragging');
-    card.classList.remove('swiping');
+    if (!dragMoved) { return; }
+    row.classList.remove('swiping');
     hintL.classList.remove('show'); hintR.classList.remove('show');
-    inner.style.transform = '';
+    row.style.transform = '';
 
     if (dx < -DELETE_AT) {
       card.classList.add('removing');
@@ -185,25 +209,26 @@ function bindCard(card, w) {
       setStatus(w, w.status === 'known' ? 'new' : 'known');
     } else if (dx > MARK) {
       setStatus(w, w.status === 'star' ? 'new' : 'star');
-    } else {
-      dragDone();
     }
   };
-  const dragDone = () => { card.classList.remove('dragging', 'swiping'); };
 
   card.addEventListener('pointerup', finish);
-  card.addEventListener('pointercancel', () => { active = false; dragDone(); inner.style.transform = ''; });
+  card.addEventListener('pointercancel', () => {
+    active = false;
+    row.classList.remove('swiping');
+    row.style.transform = '';
+  });
 
-  // 点击：背面点译文=改翻译；正面左 1/3 发音、中翻转、右 1/3 笔记
+  // 点击：浮层内不处理；行内左 1/3 发音、中翻转、右 1/3 笔记
   card.addEventListener('click', (e) => {
     if (dragMoved) { dragMoved = false; return; }
-    if (e.target.closest('.face.back')) return; // 背面用于阅读，译文编辑由 t 自己处理
+    if (e.target.closest('.flip-panel')) return; // 浮层有自己的点击逻辑
     const rect = card.getBoundingClientRect();
     const x = e.clientX - rect.left;
     if (x < rect.width / 3) {
       speak(w.word, w.audio);
     } else if (x < rect.width * 2 / 3) {
-      card.classList.toggle('flipped');
+      togglePanel(card);
     } else {
       const note = prompt('自定义笔记/释义（留空清除）', w.note || '');
       if (note === null) return;

@@ -1,149 +1,162 @@
-/* biscuit · 背单词 */
+/* biscuit · 背单词（discuit 风格极简版：纯白 / 无圆角 / 无色彩装饰） */
 :root {
-  --bg: #faf8f3;
-  --card: #ffffff;
-  --accent: #f7b731;
-  --accent-dark: #e09e12;
-  --text: #3d3629;
-  --muted: #9b917c;
-  --known: #c8c2b4;
-  --star-bg: #fff3d6;
-  --radius: 14px;
+  --text: #1a1a1a;
+  --muted: #9e9e9e;
+  --line: #ececec;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body {
   font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-  background: var(--bg);
+  background: #fff;
   color: var(--text);
   overflow: hidden;
 }
 
-/* ---------- 顶部搜索 ---------- */
+/* ---------- 第一行：输入与搜索 ---------- */
 header {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
-  background: var(--accent);
-  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: #fff;
+  border-bottom: 1px solid var(--line);
 }
 #search {
-  width: 100%;
-  padding: 11px 16px;
-  border: none; border-radius: 999px;
-  font-size: 16px;
+  display: block; width: 100%;
+  padding: 15px 16px;
+  border: none; border-radius: 0;
+  font-size: 17px;
   background: #fff;
   color: var(--text);
   outline: none;
+  appearance: none; -webkit-appearance: none;
 }
-#search::placeholder { color: #c9b98f; }
+#search::placeholder { color: #c4c4c4; }
+#search::-webkit-search-cancel-button { -webkit-appearance: none; }
 
-/* 查词浮层 */
+/* 查词浮层（输入时出现） */
 .lookup {
-  margin-top: 8px;
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: 0 6px 24px rgba(0,0,0,.16);
-  overflow: hidden;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
   max-height: 60vh; overflow-y: auto;
 }
 .lookup.hidden { display: none; }
-.lookup .item { padding: 12px 16px; cursor: pointer; }
-.lookup .item:active, .lookup .item:hover { background: var(--star-bg); }
-.lookup .w { font-size: 17px; font-weight: 600; }
+.lookup .item { padding: 12px 16px; cursor: pointer; border-top: 1px solid var(--line); }
+.lookup .item:active, .lookup .item:hover { background: #f7f7f7; }
+.lookup .w { font-size: 16px; }
 .lookup .p { color: var(--muted); font-size: 13px; margin-left: 8px; }
-.lookup .t { font-size: 14px; margin-top: 3px; color: #6b6250; }
+.lookup .t { font-size: 14px; margin-top: 3px; color: #555; }
 .lookup .d { font-size: 12px; color: var(--muted); margin-top: 3px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* ---------- 列表 ---------- */
-main { height: 100%; overflow-y: auto; padding: calc(env(safe-area-inset-top, 0px) + 74px) 14px 30px; }
-#list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
-.empty { text-align: center; color: var(--muted); margin-top: 30vh; line-height: 2; }
+/* ---------- 单词列表：一行一个 ---------- */
+main { height: 100%; overflow-y: auto; padding-top: calc(env(safe-area-inset-top, 0px) + 54px); }
+#list { list-style: none; }
+.empty { text-align: center; color: var(--muted); margin-top: 30vh; line-height: 2; font-size: 14px; }
 .empty.hidden { display: none; }
 
-.card { perspective: 800px; }
-.inner {
+.card {
   position: relative;
-  transform-style: preserve-3d;
-  transition: transform .35s, opacity .3s, background .3s;
-  will-change: transform;
+  border-bottom: 1px solid var(--line);
 }
-.card.flipped .inner { transform: rotateY(180deg); }
-.card.dragging .inner { transition: none; }
-.card.known .inner { opacity: .38; }
-.card.star .inner { background: transparent; }
+.card.open { z-index: 40; } /* 展开浮层时压住后面的行 */
 
-.face {
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: 0 1px 4px rgba(0,0,0,.08);
-  backface-visibility: hidden;
-  padding: 14px 16px;
-  min-height: 64px;
+.row {
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 52px;
+  padding: 12px 16px;
   user-select: none;
   touch-action: pan-y;
+  transition: opacity .25s, transform .25s;
 }
-.face.front { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.card.star .face { background: var(--star-bg); box-shadow: 0 0 0 2px var(--accent) inset; }
-.face.back {
-  position: absolute; inset: 0;
-  transform: rotateY(180deg);
-  overflow-y: auto;
-}
-
-.w { font-size: 18px; font-weight: 600; }
+.card.known .row { opacity: .35; }
+.w { font-size: 17px; }
 .p { font-size: 13px; color: var(--muted); margin-left: 8px; }
 .badge { font-size: 12px; color: var(--muted); flex-shrink: 0; }
-.face.back .t { font-size: 16px; margin-bottom: 6px; }
-.face.back .d { font-size: 13px; color: #6b6250; white-space: pre-wrap; }
-.face.back .n { font-size: 12px; color: var(--accent-dark); margin-top: 6px; }
 
 /* 滑动提示 */
 .hint {
   position: absolute; top: 50%; transform: translateY(-50%);
-  font-size: 20px; opacity: 0; transition: opacity .15s;
+  font-size: 17px; opacity: 0; transition: opacity .15s;
   pointer-events: none;
+  background: #fff;
 }
-.hint.left  { left: 12px; }
-.hint.right { right: 12px; }
-.card.swiping .hint.show { opacity: 1; }
+.hint.left  { left: 16px; }
+.hint.right { right: 16px; }
+.row.swiping .hint.show { opacity: 1; }
 
 /* 删除动画 */
-.card.removing { transition: opacity .25s, transform .25s; opacity: 0; transform: translateX(-100%); }
+.card.removing .row { transition: opacity .25s, transform .25s; opacity: 0; transform: translateX(-100%); }
 
-/* toast */
+/* ---------- 翻转浮层：覆盖在列表之上的"前一层的图层" ---------- */
+/* 不挤压列表：绝对定位锚在当前行顶部，宽度与行相同，向下自然展开 */
+.flip-panel {
+  position: absolute; top: 0; left: 0; right: 0;
+  z-index: 45;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-top: none;
+}
+.flip-panel.hidden { display: none; }
+
+/* 顶部一条 = 原单词行占据的位置，点它翻回 */
+.fp-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 52px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+
+/* 内容区：完整展示，可选可复制 */
+.fp-body {
+  padding: 14px 16px 18px;
+  user-select: text; -webkit-user-select: text;
+  cursor: auto;
+}
+.fp-body .t { font-size: 16px; margin-bottom: 8px; line-height: 1.6; }
+.fp-body .d { font-size: 13px; color: #555; white-space: pre-wrap; line-height: 1.7; }
+.fp-body .n { font-size: 13px; color: #777; margin-top: 8px; }
+
+/* ---------- toast ---------- */
 #toast {
   position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
   left: 50%; transform: translateX(-50%);
-  background: rgba(0,0,0,.75); color: #fff;
-  padding: 8px 18px; border-radius: 999px; font-size: 14px;
+  background: #1a1a1a; color: #fff;
+  padding: 8px 18px;
+  font-size: 14px;
   opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 99;
 }
 #toast.show { opacity: 1; }
 
 /* ---------- 口令对话框 ---------- */
 #token-dialog {
-  border: none; border-radius: 16px;
+  border: 1px solid var(--line);
+  border-radius: 0;
   padding: 28px 30px;
-  box-shadow: 0 12px 48px rgba(0,0,0,.25);
   text-align: center;
 }
-#token-dialog::backdrop { background: rgba(0,0,0,.4); }
-#token-dialog h2 { font-size: 20px; margin-bottom: 10px; }
+#token-dialog::backdrop { background: rgba(255,255,255,.92); }
+#token-dialog h2 { font-size: 19px; margin-bottom: 10px; font-weight: 500; }
 #token-dialog p { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
 #token-input {
   width: 100%; padding: 10px 14px;
-  border: 2px solid var(--accent); border-radius: 10px;
+  border: none; border-bottom: 1px solid var(--text);
+  border-radius: 0;
   font-size: 16px; text-align: center; outline: none;
+  background: #fff; color: var(--text);
   box-sizing: border-box;
 }
 #token-dialog button {
-  margin-top: 14px;
-  width: 100%; padding: 10px 0;
-  border: none; border-radius: 10px;
-  background: var(--accent); color: #fff;
-  font-size: 15px; font-weight: 600; cursor: pointer;
+  margin-top: 18px;
+  width: 100%; padding: 11px 0;
+  border: 1px solid var(--text);
+  border-radius: 0;
+  background: #fff; color: var(--text);
+  font-size: 15px; cursor: pointer;
 }
-.token-error { color: #d64541 !important; font-weight: 600; }
+#token-dialog button:active { background: #f2f2f2; }
+.token-error { color: #d64541 !important; }
 .token-error.hidden { display: none; }
