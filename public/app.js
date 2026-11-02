@@ -101,7 +101,8 @@ function askToken(withError = false) {
 
 async function api(path, opts = {}, _retried = false) {
   if (!getToken()) await askToken();
-  opts.headers = { Authorization: `Bearer ${getToken()}`, ...(opts.headers || {}) };
+  // 注意：Authorization 必须放在展开之后，否则 401 重试时旧 headers 会把新口令盖掉
+  opts.headers = { ...(opts.headers || {}), Authorization: `Bearer ${getToken()}` };
   if (opts.body) opts.headers['Content-Type'] = 'application/json';
   if (S.apiProvider === 'azure' && S.apiKey) opts.headers['X-Translator-Key'] = S.apiKey;
   const res = await fetch(path, opts);
