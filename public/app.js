@@ -90,6 +90,11 @@ function askToken(withError = false) {
         return;
       }
       localStorage.setItem('biscuit_token', t); // 立即持久化，刷新后免重登
+      // 隐私安全诊断：只记长度和哈希前 8 位，不记录口令本身（正确值 len=11 sha=ea531c75）
+      crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)).then(b => {
+        const h = [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+        console.log(`口令诊断: 长度=${t.length} sha=${h.slice(0, 8)}（正确: 长度=11 sha=ea531c75）`);
+      }).catch(() => {});
       form.onsubmit = null;
       dlg.classList.remove('error');
       dlg.close();
@@ -510,14 +515,19 @@ async function boot() {
     render();
     localStorage.setItem('biscuit_words', JSON.stringify(words));
   } catch (e) {
-    if (e.message === 'unauthorized') emptyEl.textContent = '口令不正确，刷新页面重试';
-    else if (words.length) toast('离线中，显示缓存数据');
-    else emptyEl.textContent = '加载失败，检查网络后重试';
+    if (e.message === 'unauthorized') {
+      emptyEl.textContent = '口令不正确，刷新页面重试';
+      emptyEl.classList.remove('hidden'); // 无痕模式无缓存时 body 不能留白
+    } else if (words.length) toast('离线中，显示缓存数据');
+    else {
+      emptyEl.textContent = '加载失败，检查网络后重试';
+      emptyEl.classList.remove('hidden');
+    }
   }
 }
 
 // Service Worker 注册（仅 https/localhost）
-const SW_VERSION = 'v1103b';
+const SW_VERSION = 'v1103c';
 console.log(`biscuit 前端版本 ${SW_VERSION}`); // 诊断用：控制台可见当前版本
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // 自愈：清掉所有旧版本缓存（只保留当前 biscuit-v10），防止老 SW 反复喂旧代码

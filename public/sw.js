@@ -1,5 +1,5 @@
-const CACHE = 'biscuit-v10';
-const PRECACHE = ['/', '/index.html', '/style.css?v=1103b', '/app.js?v=1103b', '/manifest.webmanifest', '/biscuit.svg',
+const CACHE = 'biscuit-v11';
+const PRECACHE = ['/', '/index.html', '/style.css?v=1103c', '/app.js?v=1103c', '/manifest.webmanifest', '/biscuit.svg',
   '/icons/icon-192.png', '/icons/icon-512.png'];
 // 联网优先清单（按去查询串后的路径匹配）：在线必拿最新，离线回退缓存
 const FRESH = new Set(['/index.html', '/app.js', '/style.css']);
