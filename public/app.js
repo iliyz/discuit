@@ -10,6 +10,10 @@ let dragMoved = false; // 本次 pointer 序列是否构成拖动（抑制 click
 /* ---------- 设置（存本机 localStorage） ---------- */
 const BISCUIT_GREEN = '#36ab60';
 const SETTINGS_KEY = 'biscuit_settings';
+const RED_PER_MARK = 2;          // 1 次右滑大距离 = 2 个 red 单位 = 1 个标记次数（2 次左轻滑抵 1 次）
+const MAX_MARKS_CAP = 5;         // 最大标记次数上限（原来是 10，收紧到 5）
+const MAX_MEM_CAP = 10;          // 最大记忆次数上限
+const ZONE_MIN = 10;             // 相邻点击区域分界之间至少保留的宽度（%）
 const DEFAULT_SETTINGS = {
   glyph: BISCUIT_GREEN,          // ▛/▟ 颜色
   zone1: 33,                     // 左|中 分界 %
@@ -19,19 +23,36 @@ const DEFAULT_SETTINGS = {
   rowText: '#ffffff',            // 词条默认文字
   panelBg: '#ffffff',            // 释义窗口背景
   redColor: '#e0524d',           // 红标记色块
-  maxMarks: 3,                   // 最大标记次数：右滑大距离累计次数上限，深度 = red/(3*maxMarks)
+  maxMarks: 3,                   // 最大标记次数：深度 = red / (RED_PER_MARK * maxMarks)
   voice: 'native',               // 发音源：native=真人 mp3 优先，tts=设备合成
-  maxMem: 1,                     // a：最大记忆次数单位，最深 3a 层
+  maxMem: 1,                     // 最大记忆次数单位 a，最深 3a 层
   apiProvider: 'azure',
   apiKey: '',
 };
 let S = loadSettings();
 
+// 取整并夹在 [lo, hi] 内，非法值回落到 dflt
+function clampInt(v, lo, hi, dflt) {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return dflt;
+  return Math.min(hi, Math.max(lo, n));
+}
+
 function loadSettings() {
+  let s;
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-    return { ...DEFAULT_SETTINGS, ...saved, fns: [...(saved.fns || DEFAULT_SETTINGS.fns)] };
-  } catch { return { ...DEFAULT_SETTINGS }; }
+    s = { ...DEFAULT_SETTINGS, ...saved, fns: [...(saved.fns || DEFAULT_SETTINGS.fns)] };
+  } catch {
+    s = { ...DEFAULT_SETTINGS, fns: [...DEFAULT_SETTINGS.fns] };
+  }
+  // 老版本存下的值可能越界（如 maxMarks 曾允许到 10、分界值互相穿越），统一夹一次再回显
+  s.maxMem = clampInt(s.maxMem, 1, MAX_MEM_CAP, DEFAULT_SETTINGS.maxMem);
+  s.maxMarks = clampInt(s.maxMarks, 1, MAX_MARKS_CAP, DEFAULT_SETTINGS.maxMarks);
+  s.zone1 = clampInt(s.zone1, ZONE_MIN, 100 - 2 * ZONE_MIN, DEFAULT_SETTINGS.zone1);
+  s.zone2 = clampInt(s.zone2, s.zone1 + ZONE_MIN, 100 - ZONE_MIN, DEFAULT_SETTINGS.zone2);
+  if (!Array.isArray(s.fns) || s.fns.length !== 3) s.fns = [...DEFAULT_SETTINGS.fns];
+  return s;
 }
 function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(S)); applySettings(); }
 
@@ -198,7 +219,7 @@ function render() {
     row.appendChild(left);
     if (w.red > 0) {
       // 红标块不显示数字，深度随标记量连续变化：maxMarks 次右滑到底 = 纯红，左轻滑逐级减淡
-      const depth = Math.min(1, w.red / (3 * Math.max(1, S.maxMarks)));
+      const depth = Math.min(1, w.red / (RED_PER_MARK * Math.max(1, S.maxMarks)));
       const rb = el('div', 'redblock');
       rb.style.background = mixHex('#ffffff', S.redColor, depth);
       row.appendChild(rb);
@@ -300,7 +321,7 @@ function bindCard(card, w) {
       // 左滑大距离：移到列表尾部
       patchWord(w, { tail: 1 }).then(() => toast(`${w.word} 已移到底部`));
     } else if (dx <= -LIGHT) {
-      // 左滑轻：先抵消红标记（3 次轻滑抵 1 次，红块随之逐级减淡），否则记忆 +1（颜色变浅）
+      // 左滑轻：先抵消红标记（2 次轻滑抵 1 次右滑，红块随之逐级减淡），否则记忆 +1（颜色变浅）
       if (w.red > 0) {
         const nr = Math.max(0, w.red - 1);
         patchWord(w, { red: nr }).then(() => toast(nr === 0 ? '标记已清零' : `标记减淡（再 ${nr} 次轻滑抵完）`));
@@ -309,9 +330,10 @@ function bindCard(card, w) {
         patchWord(w, { mem: nm }).then(() => toast(nm >= 3 * S.maxMem ? `${w.word} 已记满（${nm}/${3 * S.maxMem}）` : `${w.word} 记住 +1（${nm}/${3 * S.maxMem}）`));
       }
     } else if (dx >= bigAt) {
-      // 右滑大距离：红标记 +1（服务端以 1/3 为单位存储），深度由 maxMarks 控制
-      const nr = Math.min(3 * Math.max(1, S.maxMarks), (w.red || 0) + 3);
-      patchWord(w, { red: nr }).then(() => toast(nr >= 3 * S.maxMarks ? `⚑ 标记已满（${S.maxMarks}/${S.maxMarks}）` : `⚑ 标记 ${Math.round(nr / 3)}/${S.maxMarks}`));
+      // 右滑大距离：红标记 +1（服务端按 1/RED_PER_MARK 的原始整数存储），深度由 maxMarks 控制
+      const marks = Math.max(1, S.maxMarks);
+      const nr = Math.min(RED_PER_MARK * marks, (w.red || 0) + RED_PER_MARK);
+      patchWord(w, { red: nr }).then(() => toast(nr >= RED_PER_MARK * marks ? `⚑ 标记已满（${marks}/${marks}）` : `⚑ 标记 ${Math.round(nr / RED_PER_MARK)}/${marks}`));
     } else if (dx >= LIGHT) {
       // 右滑轻：记忆 -1（颜色变深回绿）
       const nm = Math.max(0, (w.mem || 0) - 1);
@@ -441,45 +463,147 @@ $('#menu-btn').addEventListener('click', () => { syncSettingsUI(); settingsEl.cl
 $('#back-btn').addEventListener('click', () => settingsEl.classList.add('hidden'));
 
 function syncSettingsUI() {
+  // 角标颜色
   document.querySelectorAll('#glyph-swatches .swatch').forEach(b => {
     b.classList.toggle('active', b.dataset.v === S.glyph);
     b.onclick = () => { S.glyph = b.dataset.v; saveSettings(); syncSettingsUI(); };
   });
-  [['#fn-left', 0], ['#fn-mid', 1], ['#fn-right', 2]].forEach(([sel, i]) => { $(sel).value = S.fns[i]; });
-  $('#zone1').value = S.zone1; $('#zone1v').textContent = `左 ${S.zone1}%｜中 ${S.zone2 - S.zone1}%`;
-  $('#zone2').value = S.zone2; $('#zone2v').textContent = `中 ${S.zone2 - S.zone1}%｜右 ${100 - S.zone2}%`;
+  // 点击区域功能：分段按钮选中态 + aria-pressed
+  document.querySelectorAll('#fn-seg .seg').forEach(seg => {
+    const i = Number(seg.dataset.i);
+    seg.querySelectorAll('.seg-btn').forEach(btn => {
+      const on = btn.dataset.v === S.fns[i];
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  });
+  // 点击区域比例
+  syncZoneUI();
+  // 颜色
   $('#c-rowbg').value = S.rowBg; $('#c-rowtext').value = S.rowText;
   $('#c-panel').value = S.panelBg; $('#c-red').value = S.redColor;
-  $('#maxmem').value = S.maxMem;
-  $('#maxmarks').value = S.maxMarks;
+  // 记忆
+  $('#maxmem').value = String(S.maxMem);
+  $('#maxmemv').textContent = `${S.maxMem}（最深 ${3 * S.maxMem} 层）`;
+  $('#maxmarks').value = String(S.maxMarks);
+  $('#maxmarksv').textContent = `${S.maxMarks} 次`;
+  // 其余控件
   $('#voice-src').value = S.voice;
   $('#api-provider').value = S.apiProvider;
   $('#api-key').value = S.apiKey;
 }
 
+/* 点击区域比例：三段色块宽度、手柄位置、百分比文字一起回显 */
+function syncZoneUI() {
+  const z1 = S.zone1, z2 = S.zone2;
+  const p1 = z1, p2 = z2 - z1, p3 = 100 - z2; // 三者相加恒为 100
+  $('#zp1').textContent = `${p1}%`;
+  $('#zp2').textContent = `${p2}%`;
+  $('#zp3').textContent = `${p3}%`;
+  $('#zs1').style.width = `${p1}%`;
+  $('#zs2').style.width = `${p2}%`;
+  $('#zs3').style.width = `${p3}%`;
+  const h1 = $('#zh1'), h2 = $('#zh2');
+  h1.style.left = `${z1}%`;
+  h2.style.left = `${z2}%`;
+  h1.setAttribute('aria-valuenow', String(z1));
+  h2.setAttribute('aria-valuenow', String(z2));
+}
+
+/*
+ * 比例条拖拽（自定义 pointer 事件，不用 input[type=range] 叠加，避免轨道与手指错位）
+ * 关键：手柄 left = zone%，条宽 = 屏宽 → 手柄中心 x / 条宽 天然等于生效百分比。
+ * 约束：左手柄 ≤ 右手柄 - ZONE_MIN，两个分界之间至少保留 10%。
+ */
+function bindZoneBar() {
+  const bar = $('#zone-bar');
+  const h1 = $('#zh1'), h2 = $('#zh2');
+  let idx = 0; // 0=未拖动，1=左手柄（zone1），2=右手柄（zone2）
+
+  // 指针 x → 百分比（0~100），与色块、手柄共用同一坐标系
+  const pctAt = (clientX) => {
+    const r = bar.getBoundingClientRect();
+    if (!r.width) return 0;
+    return ((clientX - r.left) / r.width) * 100;
+  };
+
+  // 写入生效值：取整后夹紧，保证 x%+y%+z% 正好 100 且分界不穿越
+  const setHandle = (i, pct) => {
+    if (i === 1) {
+      const hi = Math.min(100 - 2 * ZONE_MIN, S.zone2 - ZONE_MIN);
+      S.zone1 = clampInt(pct, ZONE_MIN, hi, S.zone1);
+    } else {
+      S.zone2 = clampInt(pct, S.zone1 + ZONE_MIN, 100 - ZONE_MIN, S.zone2);
+    }
+  };
+
+  const commit = () => { saveSettings(); syncZoneUI(); };
+
+  bar.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const pct = pctAt(e.clientX);
+    // 直接抓起某个手柄就用它，否则吸附到最近的那条分界线
+    idx = e.target === h1 ? 1
+        : e.target === h2 ? 2
+        : (Math.abs(pct - S.zone1) <= Math.abs(pct - S.zone2) ? 1 : 2);
+    try { bar.setPointerCapture(e.pointerId); } catch {}
+    setHandle(idx, pct);
+    commit();
+    e.preventDefault();
+  });
+
+  bar.addEventListener('pointermove', (e) => {
+    if (!idx) return;
+    setHandle(idx, pctAt(e.clientX));
+    commit();
+  });
+
+  const end = () => {
+    if (!idx) return;
+    idx = 0;
+    commit(); // 收手时再存一次，确保 localStorage 是最终值
+  };
+  bar.addEventListener('pointerup', end);
+  bar.addEventListener('pointercancel', end);
+
+  // 键盘也能调（左右方向键各 1%）
+  const onKey = (i) => (e) => {
+    let d = 0;
+    if (e.key === 'ArrowLeft') d = -1;
+    else if (e.key === 'ArrowRight') d = 1;
+    else return;
+    e.preventDefault();
+    setHandle(i, (i === 1 ? S.zone1 : S.zone2) + d);
+    saveSettings(); syncSettingsUI();
+  };
+  h1.addEventListener('keydown', onKey(1));
+  h2.addEventListener('keydown', onKey(2));
+}
+
 function bindSettings() {
-  [['#fn-left', 0], ['#fn-mid', 1], ['#fn-right', 2]].forEach(([sel, i]) => {
-    $(sel).addEventListener('change', (e) => { S.fns[i] = e.target.value; saveSettings(); });
+  // 点击区域功能：三个分段按钮，点完立即生效
+  document.querySelectorAll('#fn-seg .seg').forEach(seg => {
+    const i = Number(seg.dataset.i);
+    seg.querySelectorAll('.seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        S.fns[i] = btn.dataset.v;
+        saveSettings(); syncSettingsUI();
+      });
+    });
   });
-  $('#zone1').addEventListener('input', (e) => {
-    S.zone1 = Math.min(Number(e.target.value), S.zone2 - 10);
-    e.target.value = S.zone1; saveSettings(); syncSettingsUI();
-  });
-  $('#zone2').addEventListener('input', (e) => {
-    S.zone2 = Math.max(Number(e.target.value), S.zone1 + 10);
-    e.target.value = S.zone2; saveSettings(); syncSettingsUI();
-  });
+  bindZoneBar();
   $('#c-rowbg').addEventListener('input', (e) => { S.rowBg = e.target.value; saveSettings(); render(); });
   $('#c-rowtext').addEventListener('input', (e) => { S.rowText = e.target.value; saveSettings(); render(); });
   $('#c-panel').addEventListener('input', (e) => { S.panelBg = e.target.value; saveSettings(); });
   $('#c-red').addEventListener('input', (e) => { S.redColor = e.target.value; saveSettings(); render(); });
-  $('#maxmem').addEventListener('change', (e) => {
-    S.maxMem = Math.min(10, Math.max(1, Math.round(Number(e.target.value) || 1)));
-    e.target.value = S.maxMem; saveSettings(); render();
+  // 记忆：滑杆 input 实时生效（记忆层数仍是 3 × maxMem）
+  $('#maxmem').addEventListener('input', (e) => {
+    S.maxMem = clampInt(e.target.value, 1, MAX_MEM_CAP, DEFAULT_SETTINGS.maxMem);
+    saveSettings(); render(); syncSettingsUI();
   });
-  $('#maxmarks').addEventListener('change', (e) => {
-    S.maxMarks = Math.min(10, Math.max(1, Math.round(Number(e.target.value) || 3)));
-    e.target.value = S.maxMarks; saveSettings(); render();
+  $('#maxmarks').addEventListener('input', (e) => {
+    S.maxMarks = clampInt(e.target.value, 1, MAX_MARKS_CAP, DEFAULT_SETTINGS.maxMarks);
+    saveSettings(); render(); syncSettingsUI();
   });
   $('#voice-src').addEventListener('change', (e) => { S.voice = e.target.value === 'tts' ? 'tts' : 'native'; saveSettings(); });
   $('#api-provider').addEventListener('change', (e) => { S.apiProvider = e.target.value; saveSettings(); });
@@ -527,12 +651,12 @@ async function boot() {
 }
 
 // Service Worker 注册（仅 https/localhost）
-const SW_VERSION = 'v1103c';
+const SW_VERSION = 'v1103d';
 console.log(`biscuit 前端版本 ${SW_VERSION}`); // 诊断用：控制台可见当前版本
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // 自愈：清掉所有旧版本缓存（只保留当前 biscuit-v10），防止老 SW 反复喂旧代码
   caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k.startsWith('biscuit-') && k !== 'biscuit-v10').map(k => caches.delete(k)))
+    Promise.all(keys.filter(k => k.startsWith('biscuit-') && k !== 'biscuit-v12').map(k => caches.delete(k)))
   ).catch(() => {});
   navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
 }

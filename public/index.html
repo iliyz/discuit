@@ -10,8 +10,8 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/icon-192.png">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
-  <title>biscuit v1103c · 背单词</title>
-  <link rel="stylesheet" href="/style.css?v=1103c">
+  <title>biscuit v1103d · 背单词</title>
+  <link rel="stylesheet" href="/style.css?v=1103d">
 </head>
 <body>
   <header>
@@ -33,29 +33,63 @@
     </div>
     <div class="set-body">
       <div class="set-group">
-        <h3>角标颜色</h3>
-        <div class="swatches" id="glyph-swatches">
-          <button class="swatch" data-v="#36ab60" style="background:#36ab60"></button>
-          <button class="swatch" data-v="#000000" style="background:#000"></button>
-          <button class="swatch transparent" data-v="transparent"></button>
+        <div class="set-line">
+          <h3>角标颜色</h3>
+          <div class="swatches" id="glyph-swatches">
+            <button class="swatch" data-v="#36ab60" style="background:#36ab60" aria-label="biscuit 绿"></button>
+            <button class="swatch" data-v="#000000" style="background:#000" aria-label="黑色"></button>
+            <button class="swatch transparent" data-v="transparent" aria-label="透明"></button>
+          </div>
         </div>
       </div>
       <div class="set-group">
         <h3>点击区域功能</h3>
-        <label class="set-line">左侧<select id="fn-left">
-          <option value="speak">发音</option><option value="flip">翻转</option><option value="edit">编辑</option>
-        </select></label>
-        <label class="set-line">中间<select id="fn-mid">
-          <option value="speak">发音</option><option value="flip">翻转</option><option value="edit">编辑</option>
-        </select></label>
-        <label class="set-line">右侧<select id="fn-right">
-          <option value="speak">发音</option><option value="flip">翻转</option><option value="edit">编辑</option>
-        </select></label>
+        <div id="fn-seg">
+          <div class="set-line">
+            <span>左侧</span>
+            <div class="seg" data-i="0">
+              <button type="button" class="seg-btn" data-v="speak" aria-pressed="false">发音</button>
+              <button type="button" class="seg-btn" data-v="flip" aria-pressed="false">翻转</button>
+              <button type="button" class="seg-btn" data-v="edit" aria-pressed="false">编辑</button>
+            </div>
+          </div>
+          <div class="set-line">
+            <span>中间</span>
+            <div class="seg" data-i="1">
+              <button type="button" class="seg-btn" data-v="speak" aria-pressed="false">发音</button>
+              <button type="button" class="seg-btn" data-v="flip" aria-pressed="false">翻转</button>
+              <button type="button" class="seg-btn" data-v="edit" aria-pressed="false">编辑</button>
+            </div>
+          </div>
+          <div class="set-line">
+            <span>右侧</span>
+            <div class="seg" data-i="2">
+              <button type="button" class="seg-btn" data-v="speak" aria-pressed="false">发音</button>
+              <button type="button" class="seg-btn" data-v="flip" aria-pressed="false">翻转</button>
+              <button type="button" class="seg-btn" data-v="edit" aria-pressed="false">编辑</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="set-group">
-        <h3>点击区域比例</h3>
-        <label class="set-line">左｜中<input type="range" id="zone1" min="10" max="80" step="1"><span class="zone-val" id="zone1v"></span></label>
-        <label class="set-line">中｜右<input type="range" id="zone2" min="20" max="90" step="1"><span class="zone-val" id="zone2v"></span></label>
+        <div class="set-line set-line-head">
+          <h3>点击区域比例</h3>
+          <div class="zone-pcts">
+            <span class="zp zp-green" id="zp1">33%</span>
+            <span class="zp zp-yellow" id="zp2">34%</span>
+            <span class="zp zp-red" id="zp3">33%</span>
+          </div>
+        </div>
+        <div class="zone-bar" id="zone-bar">
+          <div class="zone-seg z-green" id="zs1"></div>
+          <div class="zone-seg z-yellow" id="zs2"></div>
+          <div class="zone-seg z-red" id="zs3"></div>
+          <div class="zone-handle" id="zh1" role="slider" tabindex="0"
+               aria-label="左侧与中间的分界" aria-valuemin="10" aria-valuemax="80" aria-valuenow="33"></div>
+          <div class="zone-handle" id="zh2" role="slider" tabindex="0"
+               aria-label="中间与右侧的分界" aria-valuemin="20" aria-valuemax="90" aria-valuenow="67"></div>
+        </div>
+        <p class="set-note">拖动两个手柄调整左／中／右三个点击区域的宽度，中间区域至少保留 10%。绿／黄／红三段与上方百分比一一对应。</p>
       </div>
       <div class="set-group">
         <h3>颜色</h3>
@@ -73,9 +107,9 @@
       </div>
       <div class="set-group">
         <h3>记忆</h3>
-        <label class="set-line">最大记忆次数 a<input type="number" id="maxmem" min="1" max="10" step="1"></label>
-        <label class="set-line">最大标记次数<input type="number" id="maxmarks" min="1" max="10" step="1"></label>
-        <p class="set-note">左轻滑 +1 层（变浅），右轻滑 -1 层（变深），最深到 3a；红标记需 3 次左轻滑抵消 1 次。右滑到底累计「最大标记次数」次后色块达最红，左轻滑逐级减淡。</p>
+        <label class="set-line">最大记忆次数<input type="range" id="maxmem" min="1" max="10" step="1"><span class="zone-val" id="maxmemv"></span></label>
+        <label class="set-line">最大标记次数<input type="range" id="maxmarks" min="1" max="5" step="1"><span class="zone-val" id="maxmarksv"></span></label>
+        <p class="set-note">左轻滑 +1 层（变浅），右轻滑 -1 层（变深），最深到 3×最大记忆次数；红标记需 2 次左轻滑抵消 1 次。右滑到底累计「最大标记次数」次后色块达最红，左轻滑逐级减淡。</p>
       </div>
       <div class="set-group">
         <h3>访问口令</h3>
@@ -108,6 +142,6 @@
       </div>
     </form>
   </dialog>
-  <script src="/app.js?v=1103c"></script>
+  <script src="/app.js?v=1103d"></script>
 </body>
 </html>

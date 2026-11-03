@@ -1,0 +1,140 @@
+[
+  {
+    "id": "B1",
+    "name": "角标颜色：标题与 3 个色块同一水平线",
+    "pass": true,
+    "detail": "色块数=3, top 差=9.50px（h3 高 17.0 vs 色块高 36，高度不同故 top 天然差 ~10px）, **中心线差=0.00px**, gap=10px → top 差来源于 h3 与 36px 色块的盒高差，垂直居中成立，视觉同一行"
+  },
+  {
+    "id": "B2",
+    "name": "点击第 2 个色块 → active 态 + localStorage.glyph 变化",
+    "pass": true,
+    "detail": "active=[false,true,false]（应 [false,true,false]）, glyph: #36ab60 → localStorage=#000000, --glyph=#000000"
+  },
+  {
+    "id": "B3",
+    "name": "「中间」组「翻转」→ active + 绿底白字 + fns[1]===flip",
+    "pass": true,
+    "detail": "activeFlags=[false,true,false], aria-pressed=[false,true,false], backgroundColor=rgb(54, 171, 96) (期望 rgb(54, 171, 96)), color=rgb(255, 255, 255) (期望 rgb(255, 255, 255)), localStorage.fns=[speak,flip,edit]"
+  },
+  {
+    "id": "B3b",
+    "name": "分段按钮结构：3 组 × 每组 3 个",
+    "pass": true,
+    "detail": ".seg 数量=3，每组按钮数=3"
+  },
+  {
+    "id": "B4",
+    "name": "zone-bar 宽度 ≈ 视口宽度（差 ≤ 2px）",
+    "pass": true,
+    "detail": "bar=390.00px, innerWidth=390px, 差=0.00px, 左=0.00 右=390.00"
+  },
+  {
+    "id": "B4b",
+    "name": "初始三段宽度 33%/34%/33%",
+    "pass": true,
+    "detail": "文字=[33%,34%,33%], 实测像素占比=[33.00%,34.00%,33.00%], inline width=[33%,34%,33%], 三段像素=[128.69,132.59,128.69]"
+  },
+  {
+    "id": "B4c",
+    "name": "三个百分比相加 = 100",
+    "pass": true,
+    "detail": "33 + 34 + 33 = 100"
+  },
+  {
+    "id": "A5",
+    "name": "#settings 内无横向溢出（zone-bar 负 margin 安全）",
+    "pass": true,
+    "detail": "#settings scrollWidth=390 clientWidth=390; body scrollWidth=390 clientWidth=390"
+  },
+  {
+    "id": "B5",
+    "name": "#zh2 拖到最左 → zone2-zone1 ≥ 10（被 #zh1 挡住）",
+    "pass": true,
+    "detail": "zone1=33%, zone2=43%（从 67 左移 ✓）, gap=10%（≥10 ✓ 正好贴住）, 百分比相加=100, 文字=[33,10,57%], localStorage={zone1:33, zone2:43}"
+  },
+  {
+    "id": "B5b",
+    "name": "#zh2 手柄像素位置与生效百分比一致",
+    "pass": true,
+    "detail": "手柄中心实测 = 43.00%（zh2）/ 33.00%（zh1）, 生效值 = 43% / 33%, inline left = \"43%\", aria-valuenow=43"
+  },
+  {
+    "id": "B6",
+    "name": "#zh1 拖到最右 → zone2-zone1 ≥ 10 且 zone1 ≤ 90",
+    "pass": true,
+    "detail": "zone1=57%（从 33 右移 ✓，≤90 ✓ 正好贴住 zone2-10）, zone2=67%, gap=10%（≥10 ✓）, 相加=100, 文字=[57,10,33%], 手柄实测=57.00%, inline left=\"57%\", localStorage={zone1:57, zone2:67}"
+  },
+  {
+    "id": "B7",
+    "name": "#maxmarks / #maxmem 为 range 且 max=5 / 10",
+    "pass": true,
+    "detail": "#maxmarks: type=range min=1 max=5; #maxmem: type=range min=1 max=10"
+  },
+  {
+    "id": "C3",
+    "name": "loadSettings() 把历史 maxMarks:10 clamp 到 5（且回显一致）",
+    "pass": true,
+    "detail": "写入 {maxMarks:10, maxMem:99, zone1:95, zone2:5} → S.maxMarks=5, S.maxMem=10, S.zone1=80, S.zone2=90, 滑杆显示=5, 文案=\"5 次\""
+  },
+  {
+    "id": "B7b",
+    "name": "滑杆越界值被 clamp（maxmarks 10→5、0→1；maxmem 10）",
+    "pass": true,
+    "detail": "maxmarks 10 → S=5 / localStorage=5 / 滑杆=5 / 文案=\"5 次\"; maxmarks 0 → S=1; maxmem 10 → S=10 / 文案=\"10（最深 30 层）\""
+  },
+  {
+    "id": "B8",
+    "name": "记忆说明文案：红标记需 2 次左轻滑抵消 1 次",
+    "pass": true,
+    "detail": "说明文案 = \"左轻滑 +1 层（变浅），右轻滑 -1 层（变深），最深到 3×最大记忆次数；红标记需 2 次左轻滑抵消 1 次。右滑到底累计「最大标记次数」次后色块达最红，左轻滑逐级减淡。\""
+  },
+  {
+    "id": "C1a",
+    "name": "RED_PER_MARK = 2 常量存在",
+    "pass": true,
+    "detail": "app.js:13 → const RED_PER_MARK = 2;          // 1 次右滑大距离 = 2 个 red 单位 = 1 个标记次数（2 次左轻滑抵 1 次）"
+  },
+  {
+    "id": "C1b",
+    "name": "render() 红块深度分母 = RED_PER_MARK * maxMarks",
+    "pass": true,
+    "detail": "app.js:222 → const depth = Math.min(1, w.red / (RED_PER_MARK * Math.max(1, S.maxMarks)));"
+  },
+  {
+    "id": "C1c",
+    "name": "右滑大距离 +2 且上限 2*maxMarks",
+    "pass": true,
+    "detail": "app.js:335 → const nr = Math.min(RED_PER_MARK * marks, (w.red || 0) + RED_PER_MARK);"
+  },
+  {
+    "id": "C1d",
+    "name": "左滑轻仍为 red - 1",
+    "pass": true,
+    "detail": "app.js:326 → const nr = Math.max(0, w.red - 1);"
+  },
+  {
+    "id": "C1e",
+    "name": "无残留写死 3 的标记换算",
+    "pass": true,
+    "detail": "未发现 /(3*maxMarks) 或 +3 之类残留"
+  },
+  {
+    "id": "C2a",
+    "name": "memColors() 逻辑未被改动（仍按 a / 2a / 3a 分段）",
+    "pass": true,
+    "detail": "memColors 内含 `Math.min(mem||0, 3*a)`、`m/(2*a)`、`m<=2*a`、`(m-2*a)/a`"
+  },
+  {
+    "id": "C2b",
+    "name": "记忆层数仍是 3 × maxMem",
+    "pass": true,
+    "detail": "app.js:329, app.js:330, app.js:340, app.js:487 共 4 处引用 3*S.maxMem"
+  },
+  {
+    "id": "A6",
+    "name": "无 JS 运行时错误（pageerror / console.error）",
+    "pass": true,
+    "detail": "无 PAGEERROR、无 console.error"
+  }
+]
